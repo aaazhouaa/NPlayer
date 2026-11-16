@@ -313,12 +313,6 @@
     <string name="reset_brightness_gesture_sensitivity">Reset brightness gesture sensitivity</string>
     <string name="shuffle_on">Shuffle on</string>
     <string name="shuffle_off">Shuffle off</string>
-    <string name="crash_screen_title">Oops</string>
-    <string name="crash_screen_subtitle">Looks like %s experienced an unexpected error. Consider sharing the crash logs in a GitHub issue.</string>
-    <string name="crash_screen_logs_title">Crash logs:</string>
-    <string name="crash_screen_share">Share crash logs</string>
-    <string name="crash_screen_restart">Restart the app</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="general_name">General</string>
     <string name="general_description">User data options</string>
     <string name="user_data">User data</string>
@@ -563,6 +557,12 @@
     <string name="decoder_mode_auto">Auto</string>
     <string name="settings_description">App preferences</string>
     <string name="more">More</string>
+    <string name="logs_title">Logs</string>
+    <string name="logs_empty">No logs yet. Logs from the last three sessions are kept here, including crashes.</string>
+    <string name="logs_session_crash">Crash</string>
+    <string name="logs_copy">Copy logs</string>
+    <string name="logs_share">Share logs</string>
+    <string name="logs_delete">Delete logs</string>
     <string name="new_label">NEW</string>
     <plurals name="new_videos_count">
         <item quantity="one">%1$d new video</item>

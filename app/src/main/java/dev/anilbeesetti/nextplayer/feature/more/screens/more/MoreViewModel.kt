@@ -50,6 +50,7 @@ class MoreViewModel(
             is MoreAction.OpenSettings -> output.openSettings()
             is MoreAction.OpenTrash -> output.openTrash()
             is MoreAction.OpenVault -> output.openVault()
+            is MoreAction.OpenLogs -> output.openLogs()
         }
     }
 
@@ -59,6 +60,7 @@ class MoreViewModel(
         val openSettings: () -> Unit,
         val openTrash: () -> Unit,
         val openVault: () -> Unit,
+        val openLogs: () -> Unit,
     )
 }
 
@@ -73,4 +75,5 @@ sealed interface MoreAction {
     data object OpenSettings : MoreAction
     data object OpenTrash : MoreAction
     data object OpenVault : MoreAction
+    data object OpenLogs : MoreAction
 }

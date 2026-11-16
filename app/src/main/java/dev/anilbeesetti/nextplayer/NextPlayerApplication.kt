@@ -8,7 +8,6 @@ import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.common.di.DiQualifiers
 import dev.anilbeesetti.nextplayer.core.data.repository.NetworkConnectionRepository
 import dev.anilbeesetti.nextplayer.core.media.network.keys.SshKeyStore
-import dev.anilbeesetti.nextplayer.crash.CrashActivity
 import dev.anilbeesetti.nextplayer.crash.GlobalExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -35,16 +34,12 @@ class NextPlayerApplication :
 
     override fun onCreate() {
         super.onCreate()
+        Logger.install(context = applicationContext)
         startKoin<NextPlayerApplication> {
             allowOverride(override = false)
             androidContext(androidContext = this@NextPlayerApplication)
         }
-        Thread.setDefaultUncaughtExceptionHandler(
-            GlobalExceptionHandler(
-                context = applicationContext,
-                activity = CrashActivity::class.java,
-            ),
-        )
+        Thread.setDefaultUncaughtExceptionHandler(GlobalExceptionHandler())
         applicationScope.launch {
             runCatching {
                 initializeSshKeyStore(

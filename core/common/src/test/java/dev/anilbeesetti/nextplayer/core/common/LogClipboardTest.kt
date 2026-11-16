@@ -1,10 +1,10 @@
-package dev.anilbeesetti.nextplayer.crash
+package dev.anilbeesetti.nextplayer.core.common
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class CrashLogClipboardTest {
+class LogClipboardTest {
 
     @Test
     fun reportAtClipboardLimitIsUnchanged() {
@@ -12,7 +12,7 @@ class CrashLogClipboardTest {
 
         assertEquals(
             report,
-            crashReportForClipboard(report = report),
+            logReportForClipboard(report = report),
         )
     }
 
@@ -21,7 +21,7 @@ class CrashLogClipboardTest {
         val prefix = "Device info\nException:\nPrimary hide failure\n"
         val report = prefix + "x".repeat(n = MAX_CLIPBOARD_REPORT_CHARS)
 
-        val bounded = crashReportForClipboard(report = report)
+        val bounded = logReportForClipboard(report = report)
 
         assertEquals(
             MAX_CLIPBOARD_REPORT_CHARS,

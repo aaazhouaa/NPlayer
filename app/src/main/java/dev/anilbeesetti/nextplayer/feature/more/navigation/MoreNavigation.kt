@@ -6,6 +6,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dev.anilbeesetti.nextplayer.feature.more.screens.history.HistoryScreen
 import dev.anilbeesetti.nextplayer.feature.more.screens.history.HistoryViewModel
+import dev.anilbeesetti.nextplayer.feature.more.screens.logs.LogViewerScreen
 import dev.anilbeesetti.nextplayer.feature.more.screens.more.MoreScreen
 import dev.anilbeesetti.nextplayer.feature.more.screens.more.MoreViewModel
 import dev.anilbeesetti.nextplayer.feature.more.screens.trash.TrashScreen
@@ -23,12 +24,16 @@ object HistoryRoute : NavKey
 @Serializable
 object TrashRoute : NavKey
 
+@Serializable
+object LogRoute : NavKey
+
 fun EntryProviderScope<NavKey>.moreEntry(
     onHistoryClick: () -> Unit,
     onPlayVideo: (String) -> Unit,
     onSettingsClick: () -> Unit,
     onTrashClick: () -> Unit,
     onVaultClick: () -> Unit,
+    onLogsClick: () -> Unit,
 ) {
     entry<MoreRoute> {
         val output = MoreViewModel.Output(
@@ -37,6 +42,7 @@ fun EntryProviderScope<NavKey>.moreEntry(
             openSettings = onSettingsClick,
             openTrash = onTrashClick,
             openVault = onVaultClick,
+            openLogs = onLogsClick,
         )
         val viewModel = koinViewModel<MoreViewModel>(
             parameters = { parametersOf(output) },
@@ -80,6 +86,12 @@ fun EntryProviderScope<NavKey>.trashEntry(
     }
 }
 
+fun EntryProviderScope<NavKey>.logEntry(onNavigateUp: () -> Unit) {
+    entry<LogRoute> {
+        LogViewerScreen(onNavigateUp = onNavigateUp)
+    }
+}
+
 fun NavBackStack<NavKey>.navigateToMore() {
     add(element = MoreRoute)
 }
@@ -90,4 +102,8 @@ fun NavBackStack<NavKey>.navigateToHistory() {
 
 fun NavBackStack<NavKey>.navigateToTrash() {
     add(element = TrashRoute)
+}
+
+fun NavBackStack<NavKey>.navigateToLogs() {
+    add(element = LogRoute)
 }
