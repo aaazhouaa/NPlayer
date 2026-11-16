@@ -120,7 +120,7 @@ class MediaPickerViewModel(
 
             is MediaPickerAction.OnSearchClick -> output.openSearch()
 
-            is MediaPickerAction.OnMarkAsReadClick -> markFolderAsRead()
+            is MediaPickerAction.MarkSelectedAsRead -> markSelectedAsRead(action.selectionItems)
 
             is MediaPickerAction.OnVaultClick -> output.openVault()
 
@@ -237,12 +237,13 @@ class MediaPickerViewModel(
     }
 
     /**
-     * Marks every video beneath the current folder as read, which clears the "new" counts
-     * on the folder and its subfolders. A null [folderPath] covers the whole library.
+     * Marks the videos behind the current selection as read, which clears their "new" state.
+     * Selected folders contribute all videos beneath them (direct videos only in the flat
+     * folders view, matching the other selection actions).
      */
-    private fun markFolderAsRead() {
+    private fun markSelectedAsRead(selectionItems: Set<SelectionItem>) {
         viewModelScope.launch {
-            val videos = getSortedVideosUseCase(folderPath).first()
+            val videos = selectionItems.toVideos()
             mediaRepository.markVideosAsRead(uris = videos.map { it.uriString })
         }
     }
@@ -651,7 +652,6 @@ sealed interface MediaPickerAction {
     data class OnFolderClick(val folderPath: String) : MediaPickerAction
     data object OnSettingsClick : MediaPickerAction
     data object OnSearchClick : MediaPickerAction
-    data object OnMarkAsReadClick : MediaPickerAction
     data object OnVaultClick : MediaPickerAction
     data object Refresh : MediaPickerAction
     data class RenameVideo(val uri: Uri, val to: String) : MediaPickerAction
@@ -662,6 +662,7 @@ sealed interface MediaPickerAction {
         val selectionItems: Set<SelectionItem>,
         val permanently: Boolean = false,
     ) : MediaPickerAction
+    data class MarkSelectedAsRead(val selectionItems: Set<SelectionItem>) : MediaPickerAction
     data class ShareSelectedItems(val selectionItems: Set<SelectionItem>) : MediaPickerAction
     data class CopySelectedItems(val selectionItems: Set<SelectionItem>) : MediaPickerAction
     data class MoveSelectedItems(val selectionItems: Set<SelectionItem>) : MediaPickerAction

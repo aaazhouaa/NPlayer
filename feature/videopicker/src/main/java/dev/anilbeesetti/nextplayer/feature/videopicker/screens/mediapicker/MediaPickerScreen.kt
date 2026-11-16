@@ -309,6 +309,21 @@ internal fun MediaPickerScreenContent(
                                 },
                             )
                         }
+                        FilledTonalIconButton(
+                            onClick = {
+                                onAction(
+                                    MediaPickerAction.MarkSelectedAsRead(
+                                        selectionItems = selectionManager.selectionItems,
+                                    ),
+                                )
+                            },
+                            modifier = topBarDownModifier.tvFocusRing(isTv = isTv),
+                        ) {
+                            Icon(
+                                imageVector = NextIcons.MarkRead,
+                                contentDescription = stringResource(id = R.string.mark_as_read),
+                            )
+                        }
                     } else {
                         IconButton(
                             onClick = { onAction(MediaPickerAction.OnSearchClick) },
@@ -317,15 +332,6 @@ internal fun MediaPickerScreenContent(
                             Icon(
                                 imageVector = NextIcons.Search,
                                 contentDescription = stringResource(id = R.string.search),
-                            )
-                        }
-                        IconButton(
-                            onClick = { onAction(MediaPickerAction.OnMarkAsReadClick) },
-                            modifier = topBarDownModifier.tvFocusRing(isTv = isTv),
-                        ) {
-                            Icon(
-                                imageVector = NextIcons.MarkRead,
-                                contentDescription = stringResource(id = R.string.mark_as_read),
                             )
                         }
                         IconButton(
