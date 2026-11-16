@@ -14,6 +14,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -234,10 +235,67 @@ class MediaPickerScreenTest {
             }
         }
 
-        // Grid items share the supporting fields with list items.
+        // Resolution is overlaid on the thumbnail, the size chip sits at the
+        // thumbnail's bottom-left corner, and the path stays in the supporting fields.
         composeRule.onNodeWithText(text = "1080p").assertIsDisplayed()
         composeRule.onNodeWithText(text = "320KB").assertIsDisplayed()
         composeRule.onNodeWithText(text = "/storage/emulated/0/Download").assertIsDisplayed()
+    }
+
+    @Test
+    fun gridLayoutKeepsNewBadgeAndResolutionOnTheSameRow() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VIDEO)
+        val video = Video.sample.copy(
+            nameWithExtension = "Clip.mp4",
+            uriString = "file:///storage/emulated/0/.Movies/Clip.mp4",
+            dateAdded = System.currentTimeMillis() / 1000,
+        )
+        composeRule.setContent {
+            NextPlayerTheme {
+                MediaPickerScreenContent(
+                    state = MediaPickerUiState(
+                        folderName = ".Movies",
+                        mediaDataState = DataState.Success(
+                            value = MediaHolder(
+                                videos = listOf(element = video),
+                                folders = emptyList(),
+                            ),
+                        ),
+                        preferences = ApplicationPreferences(
+                            mediaViewMode = MediaViewMode.VIDEOS,
+                            mediaLayoutMode = MediaLayoutMode.GRID,
+                            showResolutionField = true,
+                        ),
+                    ),
+                )
+            }
+        }
+
+        // The chips are looked up in the unmerged tree: the list item merges its
+        // descendants, which would collapse both chips into a single node.
+        val newBadgeBounds = composeRule
+            .onNodeWithText(
+                text = "NEW",
+                useUnmergedTree = true,
+            )
+            .getBoundsInRoot()
+        val resolutionBounds = composeRule
+            .onNodeWithText(
+                text = "1080p",
+                useUnmergedTree = true,
+            )
+            .getBoundsInRoot()
+
+        // The resolution chip shares the new badge's row instead of starting a new one.
+        assertTrue(
+            "new=$newBadgeBounds res=$resolutionBounds",
+            resolutionBounds.top < newBadgeBounds.bottom,
+        )
+        assertTrue(
+            "new=$newBadgeBounds res=$resolutionBounds",
+            resolutionBounds.left >= newBadgeBounds.right,
+        )
     }
 
     @Test

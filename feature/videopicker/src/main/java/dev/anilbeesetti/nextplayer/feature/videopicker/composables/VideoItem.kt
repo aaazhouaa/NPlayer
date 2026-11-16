@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -250,7 +251,9 @@ private fun VideoSupportingFields(
     val path = video.path.substringBeforeLast(delimiter = "/")
     val showPath = preferences.showPathField && path.isNotBlank()
     val showSize =
-        preferences.showSizeField && video.size > 0 && video.formattedFileSize.isNotBlank()
+        preferences.showSizeField && video.size > 0 && video.formattedFileSize.isNotBlank() &&
+            // Grid mode shows the size on the thumbnail instead.
+            preferences.mediaLayoutMode == MediaLayoutMode.LIST
     val showResolution = preferences.showResolutionField &&
         video.height > 0 &&
         // Grid mode shows the resolution on the thumbnail instead.
@@ -345,6 +348,15 @@ private fun ThumbnailView(
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        val showResolutionChip =
+            showResolutionOverlay && preferences.showResolutionField && video.height > 0
+
+        // Grid mode overlays the size on the thumbnail; list mode shows it below the title.
+        val showSizeChip = preferences.mediaLayoutMode == MediaLayoutMode.GRID &&
+            preferences.showSizeField &&
+            video.size > 0 &&
+            video.formattedFileSize.isNotBlank()
+
         if (preferences.showDurationField && video.duration > 0 &&
             video.formattedDuration.isNotBlank()
         ) {
@@ -359,15 +371,25 @@ private fun ThumbnailView(
             )
         }
 
-        val showResolutionChip =
-            showResolutionOverlay && preferences.showResolutionField && video.height > 0
+        if (showSizeChip) {
+            InfoChip(
+                text = video.formattedFileSize,
+                modifier = Modifier
+                    .padding(5.dp)
+                    .align(Alignment.BottomStart),
+                backgroundColor = Color.Black.copy(alpha = 0.6f),
+                contentColor = Color.White,
+                shape = MaterialTheme.shapes.extraSmall,
+            )
+        }
 
         if (isNew || showResolutionChip) {
-            Column(
+            Row(
                 modifier = Modifier
                     .padding(5.dp)
                     .align(Alignment.TopStart),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (isNew) {
                     InfoChip(
