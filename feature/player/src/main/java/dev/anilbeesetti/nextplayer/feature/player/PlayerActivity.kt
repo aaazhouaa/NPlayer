@@ -31,6 +31,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.common.extensions.getInitialDirectoryUri
 import dev.anilbeesetti.nextplayer.core.common.extensions.getMediaContentUri
 import dev.anilbeesetti.nextplayer.core.common.service.registerForSuspendActivityResult
@@ -121,6 +122,11 @@ class PlayerActivity : ComponentActivity() {
 
         override fun onPlayerError(error: PlaybackException) {
             playbackFailed = true
+            Logger.logError(
+                tag = TAG,
+                message = "activity observed playback error " +
+                    "code=${error.errorCode}: ${error.message}",
+            )
             if (playerApi.suppressErrorMessage) {
                 val controller = mediaController ?: return
                 if (controller.hasNextMediaItem()) {
@@ -433,6 +439,11 @@ class PlayerActivity : ComponentActivity() {
 
     private suspend fun playVideo(uri: Uri, playlistId: Long?) = withContext(Dispatchers.Default) {
         val request = playerApi
+        Logger.logInfo(
+            tag = TAG,
+            message = "opening $uri (playlistId=$playlistId, apiAccess=${request.isApiAccess}, " +
+                "background=${request.launchInBackground})",
+        )
         val savedQueue = playlistId
             ?.let { playlistRepository.getPlaylist(playlistId = it) }
             ?.toMediaQueue(selectedUri = uri.toString())
@@ -711,3 +722,5 @@ class PlayerActivity : ComponentActivity() {
         onWindowAttributesChangedListener.remove(listener)
     }
 }
+
+private const val TAG = "PlayerActivity"

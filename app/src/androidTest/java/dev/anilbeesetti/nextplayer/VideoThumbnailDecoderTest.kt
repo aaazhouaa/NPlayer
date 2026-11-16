@@ -32,8 +32,40 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = 29)
 class VideoThumbnailDecoderTest {
+
+    private companion object {
+        const val CONTENT_URI = "content://media/external/video/media/1"
+    }
+
     @Test
     fun contentVideoWithInaccessiblePathDecodesWithoutCachedThumbnail() = runBlocking {
+        withContentVideo { context ->
+            assertDecodesAllStrategies(
+                context = context,
+                uri = CONTENT_URI,
+            )
+        }
+    }
+
+    @Test
+    fun framePositionPastEndOfVideoStillDecodesAThumbnail() = runBlocking {
+        withContentVideo { context ->
+            // A duration longer than the real stream makes the seek fail on both retrievers;
+            // the decoder must still produce a frame instead of failing the request.
+            assertDecodes(
+                context = context,
+                uri = CONTENT_URI,
+                strategy = ThumbnailStrategy.FrameAtPercentage(percentage = 2f),
+            )
+            assertDecodes(
+                context = context,
+                uri = CONTENT_URI,
+                strategy = ThumbnailStrategy.Hybrid(percentage = 2f),
+            )
+        }
+    }
+
+    private suspend fun withContentVideo(block: suspend (Context) -> Unit) {
         val targetContext = ApplicationProvider.getApplicationContext<Context>()
         val file = File(
             targetContext.cacheDir,
@@ -82,10 +114,7 @@ class VideoThumbnailDecoderTest {
         }
 
         try {
-            assertDecodesAllStrategies(
-                context = context,
-                uri = "content://media/external/video/media/1",
-            )
+            block(context)
         } finally {
             file.delete()
         }
@@ -195,30 +224,38 @@ class VideoThumbnailDecoderTest {
             ThumbnailStrategy.FrameAtPercentage(),
             ThumbnailStrategy.Hybrid(),
         )) {
-            val imageLoader = ImageLoader.Builder(context = context)
-                .components { add(VideoThumbnailDecoder.Factory { strategy }) }
-                .build()
-            try {
-                val result = imageLoader.execute(
-                    ImageRequest.Builder(context = context)
-                        .data(data = uri)
-                        .size(
-                            width = 160,
-                            height = 90,
-                        )
-                        .memoryCachePolicy(CachePolicy.DISABLED)
-                        .diskCachePolicy(CachePolicy.DISABLED)
-                        .build(),
-                )
-                assertTrue(
-                    "$strategy: $result",
-                    result is SuccessResult,
-                )
-                assertTrue((result as SuccessResult).image.width > 0)
-                assertTrue(result.image.height > 0)
-            } finally {
-                imageLoader.shutdown()
-            }
+            assertDecodes(
+                context = context,
+                uri = uri,
+                strategy = strategy,
+            )
+        }
+    }
+
+    private suspend fun assertDecodes(context: Context, uri: String, strategy: ThumbnailStrategy) {
+        val imageLoader = ImageLoader.Builder(context = context)
+            .components { add(VideoThumbnailDecoder.Factory { strategy }) }
+            .build()
+        try {
+            val result = imageLoader.execute(
+                ImageRequest.Builder(context = context)
+                    .data(data = uri)
+                    .size(
+                        width = 160,
+                        height = 90,
+                    )
+                    .memoryCachePolicy(CachePolicy.DISABLED)
+                    .diskCachePolicy(CachePolicy.DISABLED)
+                    .build(),
+            )
+            assertTrue(
+                "$strategy: $result",
+                result is SuccessResult,
+            )
+            assertTrue((result as SuccessResult).image.width > 0)
+            assertTrue(result.image.height > 0)
+        } finally {
+            imageLoader.shutdown()
         }
     }
 

@@ -1,5 +1,6 @@
 package dev.anilbeesetti.nextplayer.core.data.repository
 
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.database.dao.NetworkConnectionDao
 import dev.anilbeesetti.nextplayer.core.database.entities.NetworkConnectionEntity
 import dev.anilbeesetti.nextplayer.core.model.NetworkAuthentication
@@ -27,21 +28,48 @@ class LocalNetworkConnectionRepository(private val networkConnectionDao: Network
     private fun NetworkConnectionEntity.toModel() = NetworkConnection(
         id = id,
         name = name,
-        protocol = runCatching {
-            NetworkProtocol.valueOf(value = protocol)
-        }.getOrDefault(NetworkProtocol.SMB),
+        protocol = storedEnumOrDefault(
+            name = "protocol",
+            value = protocol,
+            fallback = NetworkProtocol.SMB,
+        ),
         host = host,
         port = port,
         path = path,
         username = username,
         password = password,
         useHttps = useHttps,
-        authentication = runCatching { NetworkAuthentication.valueOf(value = authentication) }
-            .getOrDefault(NetworkAuthentication.PASSWORD),
+        authentication = storedEnumOrDefault(
+            name = "authentication",
+            value = authentication,
+            fallback = NetworkAuthentication.PASSWORD,
+        ),
         privateKeyFileName = privateKeyFileName,
         privateKeyPassphrase = privateKeyPassphrase,
         hostKeyFingerprint = hostKeyFingerprint,
     )
+
+    /**
+     * Reads a stored enum name, logging instead of silently substituting [fallback]: an unknown
+     * protocol or authentication value would otherwise turn a connection into a different one.
+     */
+    private inline fun <reified T : Enum<T>> NetworkConnectionEntity.storedEnumOrDefault(
+        name: String,
+        value: String,
+        fallback: T,
+    ): T = runCatching { enumValueOf<T>(value) }
+        .onFailure { error ->
+            Logger.logWarning(
+                tag = TAG,
+                message = "unknown $name \"$value\" stored for connection $id, using $fallback",
+                throwable = error,
+            )
+        }
+        .getOrDefault(fallback)
+
+    private companion object {
+        private const val TAG = "NetworkConnectionRepository"
+    }
 
     private fun NetworkConnection.toEntity() = NetworkConnectionEntity(
         id = id,

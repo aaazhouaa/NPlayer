@@ -2,6 +2,7 @@ package dev.anilbeesetti.nextplayer.feature.network.screens.addconnection
 
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.common.di.DiQualifiers
 import dev.anilbeesetti.nextplayer.core.data.repository.NetworkConnectionRepository
 import dev.anilbeesetti.nextplayer.core.media.network.NetworkClientFactory
@@ -288,6 +289,13 @@ class AddConnectionViewModel(
             return
         }
 
+        if (error is CancellationException) throw error
+        val draft = operation.draft
+        Logger.logError(
+            tag = TAG,
+            message = "connection test failed for ${draft.protocol} ${draft.host}${draft.path}",
+            throwable = error,
+        )
         val hostConfirmation = error.findCause<HostKeyConfirmationRequired>()
         if (hostConfirmation != null) {
             pendingOperation = operation
@@ -547,5 +555,6 @@ class AddConnectionViewModel(
 
     private companion object {
         const val CLEANUP_ATTEMPTS = 3
+        private const val TAG = "AddConnectionViewModel"
     }
 }

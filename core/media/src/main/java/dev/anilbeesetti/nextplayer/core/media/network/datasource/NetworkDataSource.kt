@@ -5,6 +5,7 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSpec
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.media.network.NetworkClient
 import java.io.IOException
 import java.io.InputStream
@@ -19,6 +20,10 @@ import kotlinx.coroutines.runBlocking
  */
 @UnstableApi
 class NetworkDataSource(private val sessions: NetworkSessions) : BaseDataSource(true) {
+
+    private companion object {
+        private const val TAG = "NetworkDataSource"
+    }
 
     private var uri: Uri? = null
     private var stream: InputStream? = null
@@ -45,8 +50,18 @@ class NetworkDataSource(private val sessions: NetworkSessions) : BaseDataSource(
                 )
             }
         } catch (e: IOException) {
+            Logger.logError(
+                tag = TAG,
+                message = "network read open failed for ${dataSpec.uri} at ${dataSpec.position}",
+                throwable = e,
+            )
             throw e
         } catch (e: Exception) {
+            Logger.logError(
+                tag = TAG,
+                message = "network read open failed for ${dataSpec.uri} at ${dataSpec.position}",
+                throwable = e,
+            )
             throw IOException(
                 "Failed to open ${dataSpec.uri}",
                 e,

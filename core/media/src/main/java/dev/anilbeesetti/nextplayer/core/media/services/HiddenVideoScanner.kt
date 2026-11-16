@@ -9,6 +9,7 @@ import androidx.core.net.toUri
 import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.common.di.DiQualifiers
 import dev.anilbeesetti.nextplayer.core.common.extensions.mapAsync
+import dev.anilbeesetti.nextplayer.core.common.millisSince
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
@@ -103,7 +104,16 @@ class HiddenVideoScanner(
      *        `.nomedia` marker are excluded entirely (their media is not scanned).
      */
     suspend fun scan(root: String?, respectNoMedia: Boolean = false): List<MediaVideo> {
-        if (!isFileSystemAccessible()) return emptyList()
+        if (!isFileSystemAccessible()) {
+            // Android 11+ without MANAGE_EXTERNAL_STORAGE: the most common reason hidden media
+            // never shows up, so it must not stay invisible in the logs.
+            Logger.logWarning(
+                tag = TAG,
+                message = "hidden scan skipped: file system is not accessible " +
+                    "(root=$root, sdk=${Build.VERSION.SDK_INT})",
+            )
+            return emptyList()
+        }
         loadFirstSeen()
 
         val key = ScanKey(
@@ -111,7 +121,14 @@ class HiddenVideoScanner(
             respectNoMedia,
         )
         val nowMillis = System.currentTimeMillis()
-        cache[key]?.takeIf { it.isFresh(nowMillis = nowMillis) }?.let { return it.videos }
+        cache[key]?.takeIf { it.isFresh(nowMillis = nowMillis) }?.let { cached ->
+            Logger.logInfo(
+                tag = TAG,
+                message = "hidden scan served ${cached.videos.size} videos from memory cache " +
+                    "(root=$root)",
+            )
+            return cached.videos
+        }
         loadFromDisk(
             key = key,
             nowMillis = nowMillis,
@@ -123,9 +140,14 @@ class HiddenVideoScanner(
             // Seed the per-file metadata so scans of subfolders reuse these values
             // instead of parsing the same files again.
             cached.forEach { video -> video.rememberMetadata() }
+            Logger.logInfo(
+                tag = TAG,
+                message = "hidden scan served ${cached.size} videos from disk cache (root=$root)",
+            )
             return cached
         }
 
+        val startedAt = System.nanoTime()
         val roots = root?.let(::listOf) ?: storageVolumeRoots()
         val mediaStorePaths = mediaStoreVideoPaths()
 
@@ -151,6 +173,12 @@ class HiddenVideoScanner(
             scannedAtMillis = nowMillis,
         )
         persistFirstSeen(pruneMissingFiles = root == null)
+        Logger.logInfo(
+            tag = TAG,
+            message = "hidden scan found ${videos.size} videos in ${files.size} files across " +
+                "${roots.size} root(s) (${mediaStorePaths.size} already indexed, root=$root, " +
+                "respectNoMedia=$respectNoMedia) in ${millisSince(startedAt)}ms",
+        )
         enrichInBackground(
             key = key,
             files = files,
@@ -211,6 +239,12 @@ class HiddenVideoScanner(
                         appendLine(seconds)
                     }
                 },
+            )
+        }.onFailure { error ->
+            Logger.logWarning(
+                tag = TAG,
+                message = "first-seen record write failed, discovery times are not persisted",
+                throwable = error,
             )
         }
     }
@@ -287,6 +321,13 @@ class HiddenVideoScanner(
                     "${video.path}\t${video.duration}\t${video.width}\t${video.height}"
                 },
             )
+        }.onFailure { error ->
+            Logger.logWarning(
+                tag = TAG,
+                message = "hidden scan snapshot write failed for ${diskFile(key).absolutePath} " +
+                    "(${videos.size} entries)",
+                throwable = error,
+            )
         }
     }
 
@@ -346,6 +387,11 @@ class HiddenVideoScanner(
                     scannedAtMillis = cache[key]?.scannedAtMillis ?: System.currentTimeMillis(),
                 )
                 cacheUpdates.tryEmit(Unit)
+                Logger.logInfo(
+                    tag = TAG,
+                    message = "hidden metadata enrichment finished for ${enriched.size} files " +
+                        "(root=${key.root})",
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

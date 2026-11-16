@@ -23,7 +23,15 @@ class AppPreferencesDataSource(
         transform: suspend (ApplicationPreferences) -> ApplicationPreferences,
     ) {
         try {
-            appPreferences.updateData(transform = transform)
+            appPreferences.updateData { current ->
+                val updated = transform(current)
+                logPreferenceChanges(
+                    tag = TAG,
+                    previous = current,
+                    updated = updated,
+                )
+                updated
+            }
         } catch (ioException: Exception) {
             Logger.logError(
                 tag = TAG,

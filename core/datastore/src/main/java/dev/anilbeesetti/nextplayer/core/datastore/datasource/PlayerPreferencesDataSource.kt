@@ -21,11 +21,19 @@ class PlayerPreferencesDataSource(
 
     override suspend fun update(transform: suspend (PlayerPreferences) -> PlayerPreferences) {
         try {
-            preferencesDataStore.updateData(transform = transform)
+            preferencesDataStore.updateData { current ->
+                val updated = transform(current)
+                logPreferenceChanges(
+                    tag = TAG,
+                    previous = current,
+                    updated = updated,
+                )
+                updated
+            }
         } catch (ioException: Exception) {
             Logger.logError(
                 tag = TAG,
-                message = "Failed to update app preferences: $ioException",
+                message = "Failed to update player preferences: $ioException",
             )
         }
     }

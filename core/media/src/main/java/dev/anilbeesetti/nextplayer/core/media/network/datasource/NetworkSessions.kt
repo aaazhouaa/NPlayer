@@ -1,6 +1,7 @@
 package dev.anilbeesetti.nextplayer.core.media.network.datasource
 
 import android.net.Uri
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.media.network.NetworkClient
 import dev.anilbeesetti.nextplayer.core.media.network.NetworkClientFactory
 import dev.anilbeesetti.nextplayer.core.media.network.NetworkConnectionResolver
@@ -67,12 +68,14 @@ class NetworkSessions(
 
     private suspend fun clientFor(target: NetworkConnection): NetworkClient {
         client?.takeIf { connection == target }?.let { existing ->
-            if (!existing.isConnected()) existing.connect().getOrThrow()
+            if (!existing.isConnected()) {
+                existing.connectOrLog(connection = target)
+            }
             return existing
         }
 
         val fresh = clientFactory.create(connection = target)
-        fresh.connect().getOrThrow()
+        fresh.connectOrLog(connection = target)
 
         client?.let(block = ::disconnectDetached)
         connection = target
@@ -80,7 +83,32 @@ class NetworkSessions(
         return fresh
     }
 
+    private suspend fun NetworkClient.connectOrLog(connection: NetworkConnection) {
+        connect()
+            .onFailure { error ->
+                Logger.logError(
+                    tag = TAG,
+                    message = "network connect to ${connection.protocol} ${connection.host} " +
+                        "${connection.path} failed",
+                    throwable = error,
+                )
+            }
+            .getOrThrow()
+    }
+
     private fun disconnectDetached(client: NetworkClient) {
-        CoroutineScope(Dispatchers.IO).launch { runCatching { client.disconnect() } }
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { client.disconnect() }
+                .onFailure { error ->
+                    Logger.logWarning(
+                        tag = TAG,
+                        message = "network disconnect failed: $error",
+                    )
+                }
+        }
+    }
+
+    private companion object {
+        private const val TAG = "NetworkSessions"
     }
 }

@@ -88,7 +88,14 @@ class LocalVaultRepository(
                 reservations = reservations,
                 moveResult = moveResult,
             )
-            moveResult.exceptionOrNull()?.let { if (it is CancellationException) throw it }
+            moveResult.exceptionOrNull()?.let { error ->
+                if (error is CancellationException) throw error
+                Logger.logError(
+                    tag = TAG,
+                    message = "moving ${reservations.size} video(s) into the vault failed",
+                    throwable = error,
+                )
+            }
         } finally {
             revealReservations(reservations.map { it.destination.absolutePath })
         }
@@ -106,6 +113,12 @@ class LocalVaultRepository(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    Logger.logError(
+                        tag = TAG,
+                        message = "vault insert failed for ${video.uriString}, " +
+                            "skipping this video",
+                        throwable = e,
+                    )
                     cleanUpReservations(vaultPaths = listOf(destination.absolutePath))
                     return@mapNotNull null
                 }
@@ -252,6 +265,11 @@ class LocalVaultRepository(
                 null,
                 null,
             ) // roll back the partially-written entry
+            Logger.logError(
+                tag = TAG,
+                message = "restoring ${entity.displayName} from the vault to MediaStore failed",
+                throwable = e,
+            )
             null
         }
     }

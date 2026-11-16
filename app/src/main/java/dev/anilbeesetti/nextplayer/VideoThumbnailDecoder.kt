@@ -27,7 +27,14 @@ import coil3.size.pxOrElse
 import coil3.toAndroidUri
 import coil3.util.component1
 import coil3.util.component2
+import dev.anilbeesetti.nextplayer.core.common.Logger
+import dev.anilbeesetti.nextplayer.core.common.millisSince
 import io.github.anilbeesetti.nextlib.mediainfo.MediaThumbnailRetriever
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import okio.FileSystem
@@ -37,6 +44,7 @@ class VideoThumbnailDecoder(
     private val options: Options,
     private val strategy: ThumbnailStrategy,
     private val diskCache: Lazy<DiskCache?>,
+    private val mimeType: String?,
 ) : Decoder {
 
     private val diskCacheKey: String
@@ -51,7 +59,17 @@ class VideoThumbnailDecoder(
 
     @OptIn(ExperimentalCoilApi::class)
     override suspend fun decode(): DecodeResult {
-        readFromDiskCache()?.use { snapshot ->
+        logInfo(
+            "decode start: $diskCacheKey " +
+                "size=${options.size.width.pxOrElse { 0 }}x" +
+                "${options.size.height.pxOrElse { 0 }}px " +
+                "strategy=$strategy mime=$mimeType",
+        )
+        val snapshot = readFromDiskCache()
+        if (snapshot == null) {
+            logInfo("disk cache miss for $diskCacheKey")
+        }
+        snapshot?.use { snapshot ->
             val file = snapshot.data.toFile()
 
             // Read cached image dimensions (no pixel allocation)
@@ -80,72 +98,58 @@ class VideoThumbnailDecoder(
                     srcHeight = cachedHeight,
                 )
                 val sampledBitmap = file.inputStream().use { BitmapFactory.decodeStream(it) }
-                val normalizedBitmap = normalizeBitmap(
-                    inBitmap = sampledBitmap,
-                    srcWidth = cachedWidth,
-                    srcHeight = cachedHeight,
-                    dstSize = dstSize,
-                )
-                return DecodeResult(
-                    image = normalizedBitmap.toDrawable(options.context.resources).asImage(),
-                    isSampled = DecodeUtils.computeSizeMultiplier(
+                // A truncated entry must not crash the decode: re-extract the frame instead.
+                if (sampledBitmap != null) {
+                    val normalizedBitmap = normalizeBitmap(
+                        inBitmap = sampledBitmap,
                         srcWidth = cachedWidth,
                         srcHeight = cachedHeight,
-                        dstWidth = normalizedBitmap.width,
-                        dstHeight = normalizedBitmap.height,
-                        scale = options.scale,
-                        maxSize = options.maxBitmapSize,
-                    ) < 1.0,
+                        dstSize = dstSize,
+                    )
+                    logInfo(
+                        "disk cache hit for $diskCacheKey " +
+                            "(${cachedWidth}x$cachedHeight -> " +
+                            "${normalizedBitmap.width}x${normalizedBitmap.height})",
+                    )
+                    return DecodeResult(
+                        image = normalizedBitmap.toDrawable(options.context.resources).asImage(),
+                        isSampled = DecodeUtils.computeSizeMultiplier(
+                            srcWidth = cachedWidth,
+                            srcHeight = cachedHeight,
+                            dstWidth = normalizedBitmap.width,
+                            dstHeight = normalizedBitmap.height,
+                            scale = options.scale,
+                            maxSize = options.maxBitmapSize,
+                        ) < 1.0,
+                    )
+                }
+                logWarning("disk cache entry for $diskCacheKey is truncated, re-decoding")
+            } else {
+                logInfo(
+                    "disk cache for $diskCacheKey is too small " +
+                        "(${cachedWidth}x$cachedHeight < " +
+                        "${requestedWidth}x$requestedHeight), re-decoding",
                 )
             }
         }
 
         // Cache miss OR cache insufficient: decode fresh thumbnail
-        val rawBitmap = MediaMetadataRetriever().use { nativeRetriever ->
-            nativeRetriever.setDataSource(source = source)
-
-            // FFmpeg re-opens and re-probes the whole file (avformat_find_stream_info reads
-            // megabytes), so it is only started once the native retriever fails to produce
-            // a bitmap.
-            var ffmpegRetriever: MediaThumbnailRetriever? = null
-            var ffmpegOpenAttempted = false
-            val fallbackRetriever: () -> MediaThumbnailRetriever? = {
-                if (!ffmpegOpenAttempted) {
-                    ffmpegOpenAttempted = true
-                    ffmpegRetriever = try {
-                        MediaThumbnailRetriever().apply { setDataSource(source) }
-                    } catch (_: IllegalArgumentException) {
-                        // FFmpeg can fail to reopen a trashed MediaStore descriptor even
-                        // when the native retriever can read it. Keep native decoding available.
-                        null
-                    }
-                }
-                ffmpegRetriever
-            }
-
-            try {
-                val videoDuration = nativeRetriever
-                    .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    ?.toLongOrNull() ?: 0L
-
-                nativeRetriever.embeddedPicture?.decodeToBitmap()
-                    ?: frameWithFallback(
-                        videoDuration = videoDuration,
-                        getFrame = { timeUs -> nativeRetriever.getFrameAtTime(timeUs) },
-                        fallback = { timeUs -> fallbackRetriever()?.getFrameAtTime(timeUs) },
-                    )
-                    ?: fallbackRetriever()?.let { ffmpeg ->
-                        ffmpeg.getEmbeddedPicture()?.decodeToBitmap()
-                            ?: frameWithFallback(
-                                videoDuration = videoDuration,
-                                getFrame = { timeUs -> ffmpeg.getFrameAtTime(timeUs) },
-                            )
-                    }
-                    ?: throw IllegalStateException("Failed to get video thumbnail.")
-            } finally {
-                ffmpegRetriever?.close()
-            }
+        val startedAt = System.nanoTime()
+        val nativeBitmap = if (strategy is ThumbnailStrategy.FirstFrame) {
+            // The first frame never seeks, so it cannot stall on a container without an index.
+            nativeFrame()
+        } else {
+            nativeFrameWithinBudget()
         }
+        val rawBitmap = nativeBitmap ?: ffmpegFrame()
+        if (rawBitmap == null) {
+            logError("no thumbnail for $diskCacheKey after ${millisSince(startedAt)}ms")
+            throw IllegalStateException("Failed to get video thumbnail.")
+        }
+        logInfo(
+            "decoded $diskCacheKey in ${millisSince(startedAt)}ms " +
+                "(${rawBitmap.width}x${rawBitmap.height}, $strategy, $mimeType)",
+        )
 
         val srcWidth = rawBitmap.width
         val srcHeight = rawBitmap.height
@@ -176,33 +180,226 @@ class VideoThumbnailDecoder(
     }
 
     /**
-     * Extracts a frame according to [strategy]. [fallback] is consulted with the same
-     * timestamp only when [getFrame] returns null, so a slower retriever can be started
-     * lazily instead of up front.
+     * Extracts a frame according to [strategy] with [getFrame] alone.
+     *
+     * Duration metadata can report a length longer than the real stream, which makes a seek to
+     * the requested position fail. Every path therefore retries with the first frame before
+     * giving up, so a bad timestamp can never leave an item without a thumbnail.
      */
-    private fun frameWithFallback(
-        videoDuration: Long,
-        getFrame: (Long) -> Bitmap?,
-        fallback: ((Long) -> Bitmap?)? = null,
-    ): Bitmap? = when (strategy) {
-        is ThumbnailStrategy.FirstFrame ->
-            getFrame(0L) ?: fallback?.invoke(0L)
+    private fun frameWithFallback(videoDuration: Long, getFrame: (Long) -> Bitmap?): Bitmap? =
+        when (strategy) {
+            is ThumbnailStrategy.FirstFrame ->
+                getFrame(0L)
 
-        is ThumbnailStrategy.FrameAtPercentage -> {
-            val timeUs = videoDuration.percentageTimeUs(strategy.percentage)
-            getFrame(timeUs) ?: fallback?.invoke(timeUs)
-        }
-
-        is ThumbnailStrategy.Hybrid -> {
-            val firstFrame = getFrame(0L)
-            if (firstFrame == null || isSolidColor(bitmap = firstFrame)) {
+            is ThumbnailStrategy.FrameAtPercentage -> {
                 val timeUs = videoDuration.percentageTimeUs(strategy.percentage)
-                getFrame(timeUs) ?: fallback?.invoke(timeUs)
-            } else {
-                firstFrame
+                // A failed seek almost always means an unusable duration: retry the first frame
+                // before FFmpeg repeats the same seek after a full re-open and re-probe.
+                getFrame(timeUs) ?: getFrame(0L)
+            }
+
+            is ThumbnailStrategy.Hybrid -> {
+                val firstFrame = getFrame(0L)
+                if (firstFrame == null || isSolidColor(bitmap = firstFrame)) {
+                    val timeUs = videoDuration.percentageTimeUs(strategy.percentage)
+                    getFrame(timeUs) ?: firstFrame
+                } else {
+                    firstFrame
+                }
             }
         }
+
+    /** Extracts the strategy's frame with the platform retriever. */
+    private fun nativeFrame(): Bitmap? {
+        val startedAt = System.nanoTime()
+        return MediaMetadataRetriever().use { retriever ->
+            val openStart = System.nanoTime()
+            retriever.setDataSource(source = source)
+            val openMillis = millisSince(openStart)
+
+            val embeddedPicture = retriever.embeddedPicture?.decodeToBitmap()
+            if (embeddedPicture != null) {
+                logInfo(
+                    "native embedded picture in ${millisSince(startedAt)}ms (open ${openMillis}ms)",
+                )
+                return@use embeddedPicture
+            }
+
+            val durationStart = System.nanoTime()
+            val videoDuration = retriever.videoDuration()
+            val durationMillis = millisSince(durationStart)
+
+            val frame = frameWithFallback(
+                videoDuration = videoDuration,
+                getFrame = { timeUs ->
+                    val seekStart = System.nanoTime()
+                    retriever.getFrameAtTime(timeUs).also { bitmap ->
+                        logFrame(
+                            retriever = "native",
+                            timeUs = timeUs,
+                            bitmap = bitmap,
+                            millis = millisSince(seekStart),
+                        )
+                    }
+                },
+            )
+            val totalMillis = millisSince(startedAt)
+            if (frame == null) {
+                logWarning(
+                    "native retriever produced no frame in ${totalMillis}ms " +
+                        "(open ${openMillis}ms, duration ${durationMillis}ms), trying ffmpeg",
+                )
+            } else {
+                logInfo(
+                    "native frame in ${totalMillis}ms (open ${openMillis}ms, " +
+                        "duration ${durationMillis}ms, reported duration ${videoDuration}ms) " +
+                        "${frame.width}x${frame.height}",
+                )
+            }
+            frame
+        }
     }
+
+    /**
+     * Same as [nativeFrame], but bounded: seeking into a container without an index (e.g. a TS
+     * recording) makes the retriever scan the file linearly, which can take many seconds for a
+     * single thumbnail. The extraction runs on a shared daemon thread and, once the budget is
+     * exhausted, the first frame - which never seeks - is extracted from a fresh retriever
+     * instead. The abandoned seek keeps running on its own retriever and its bitmap is
+     * discarded, so no retriever instance is ever used from two threads.
+     */
+    private fun nativeFrameWithinBudget(): Bitmap? {
+        val future = deepSeekExecutor.submit<Bitmap?> { nativeFrame() }
+        return try {
+            future.get(
+                DEEP_SEEK_BUDGET_MILLIS,
+                TimeUnit.MILLISECONDS,
+            )
+        } catch (_: TimeoutException) {
+            logWarning(
+                "deep seek exceeded the ${DEEP_SEEK_BUDGET_MILLIS}ms budget, " +
+                    "falling back to the first frame",
+            )
+            MediaMetadataRetriever().use { retriever ->
+                retriever.setDataSource(source = source)
+                val seekStart = System.nanoTime()
+                retriever.getFrameAtTime(0L).also { bitmap ->
+                    logFrame(
+                        retriever = "native",
+                        timeUs = 0L,
+                        bitmap = bitmap,
+                        millis = millisSince(seekStart),
+                    )
+                }
+            }
+        } catch (exception: ExecutionException) {
+            logError(
+                message = "native frame extraction failed",
+                throwable = exception.cause,
+            )
+            throw exception.cause ?: exception
+        }
+    }
+
+    /**
+     * Last resort for files the platform retriever cannot decode at all. FFmpeg re-opens and
+     * re-probes the whole file (avformat_find_stream_info reads megabytes), so it is only
+     * started once the native retriever fails to produce a bitmap.
+     */
+    private fun ffmpegFrame(): Bitmap? {
+        val startedAt = System.nanoTime()
+        val retriever = try {
+            MediaThumbnailRetriever().apply { setDataSource(source) }
+        } catch (exception: IllegalArgumentException) {
+            // FFmpeg can fail to reopen a trashed MediaStore descriptor even
+            // when the native retriever can read it.
+            logWarning("ffmpeg open failed in ${millisSince(startedAt)}ms: ${exception.message}")
+            return null
+        }
+        val openMillis = millisSince(startedAt)
+        return retriever.use { ffmpeg ->
+            val embeddedPicture = ffmpeg.getEmbeddedPicture()?.decodeToBitmap()
+            if (embeddedPicture != null) {
+                logInfo(
+                    "ffmpeg embedded picture in ${millisSince(startedAt)}ms (open ${openMillis}ms)",
+                )
+                return@use embeddedPicture
+            }
+
+            val durationStart = System.nanoTime()
+            val videoDuration = nativeVideoDuration()
+            val durationMillis = millisSince(durationStart)
+
+            val frame = frameWithFallback(
+                videoDuration = videoDuration,
+                getFrame = { timeUs ->
+                    val seekStart = System.nanoTime()
+                    ffmpeg.getFrameAtTime(timeUs).also { bitmap ->
+                        logFrame(
+                            retriever = "ffmpeg",
+                            timeUs = timeUs,
+                            bitmap = bitmap,
+                            millis = millisSince(seekStart),
+                        )
+                    }
+                },
+            )
+            val totalMillis = millisSince(startedAt)
+            if (frame == null) {
+                logError(
+                    "ffmpeg produced no frame in ${totalMillis}ms " +
+                        "(open ${openMillis}ms, duration ${durationMillis}ms)",
+                )
+            } else {
+                logInfo(
+                    "ffmpeg frame in ${totalMillis}ms (open ${openMillis}ms, " +
+                        "duration ${durationMillis}ms) ${frame.width}x${frame.height}",
+                )
+            }
+            frame
+        }
+    }
+
+    private fun logFrame(retriever: String, timeUs: Long, bitmap: Bitmap?, millis: Long) {
+        val result = if (bitmap == null) "null" else "${bitmap.width}x${bitmap.height}"
+        val message =
+            "$retriever getFrameAtTime(${timeUs / 1000}ms) -> $result in ${millis}ms"
+        if (bitmap == null) {
+            logWarning(message)
+        } else {
+            logInfo(message)
+        }
+    }
+
+    private fun logInfo(message: String) {
+        Logger.logInfo(
+            tag = LOG_TAG,
+            message = message,
+        )
+    }
+
+    private fun logWarning(message: String) {
+        Logger.logWarning(
+            tag = LOG_TAG,
+            message = message,
+        )
+    }
+
+    private fun logError(message: String, throwable: Throwable? = null) {
+        Logger.logError(
+            tag = LOG_TAG,
+            message = message,
+            throwable = throwable,
+        )
+    }
+
+    private fun nativeVideoDuration(): Long = MediaMetadataRetriever().use { retriever ->
+        retriever.setDataSource(source = source)
+        retriever.videoDuration()
+    }
+
+    private fun MediaMetadataRetriever.videoDuration(): Long =
+        extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
 
     private fun Long.percentageTimeUs(percentage: Float): Long = (this * percentage * 1000).toLong()
 
@@ -356,11 +553,30 @@ class VideoThumbnailDecoder(
                 options = options,
                 strategy = thumbnailStrategy(),
                 diskCache = lazy { imageLoader.diskCache },
+                mimeType = result.mimeType,
             )
         }
 
         private fun isApplicable(mimeType: String?): Boolean =
             mimeType != null && mimeType.startsWith(prefix = "video/")
+    }
+
+    private companion object {
+        const val LOG_TAG = "Thumbnail"
+
+        /**
+         * Budget for a frame extraction that seeks. A seek into a container without an index
+         * scans the file linearly, which is far too slow for a thumbnail; the first frame is
+         * used instead once the budget is exhausted.
+         */
+        const val DEEP_SEEK_BUDGET_MILLIS = 2_500L
+
+        val deepSeekExecutor: ExecutorService = Executors.newCachedThreadPool { runnable ->
+            Thread(
+                runnable,
+                "video-thumbnail-seek",
+            ).apply { isDaemon = true }
+        }
     }
 }
 

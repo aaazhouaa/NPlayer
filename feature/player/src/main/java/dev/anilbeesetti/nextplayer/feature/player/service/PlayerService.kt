@@ -223,6 +223,10 @@ class PlayerService : MediaSessionService() {
                 reason,
             )
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) return
+            Logger.logInfo(
+                tag = PLAYER_LOG_TAG,
+                message = "playing ${mediaItem?.mediaId} (transition reason=$reason)",
+            )
             restoreDecoderChoices(mediaItem = mediaItem)
             isMediaItemReady = false
             loadArtworkForCurrentMediaItem()
@@ -382,17 +386,25 @@ class PlayerService : MediaSessionService() {
                     )
             if (shouldResetTrackSelectionParameters) {
                 mediaSession?.player?.trackSelectionParameters = TrackSelectionParameters.DEFAULT
+                if (playbackState == Player.STATE_ENDED) {
+                    Logger.logInfo(
+                        tag = PLAYER_LOG_TAG,
+                        message = "playback finished for ${player?.currentMediaItem?.mediaId}",
+                    )
+                }
             }
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            if (!error.isDecoderFailure) {
+            val mediaId = mediaSession?.player?.currentMediaItem?.mediaId
+            val trackType = error.decoderTrackType()
+            if (!error.isDecoderFailure || trackType == null) {
                 decoderRecoveryManager.onNonDecoderError()
-                return
-            }
-
-            val trackType = error.decoderTrackType() ?: run {
-                decoderRecoveryManager.onNonDecoderError()
+                Logger.logError(
+                    tag = PLAYER_LOG_TAG,
+                    message = "playback error code=${error.errorCode} for $mediaId: " +
+                        error.message,
+                )
                 return
             }
             handleDecoderFailure(trackType = trackType)
@@ -414,6 +426,10 @@ class PlayerService : MediaSessionService() {
                     player.clearMediaItems()
                     player.stop()
                 }
+                Logger.logInfo(
+                    tag = PLAYER_LOG_TAG,
+                    message = "end of media item reached, stopping the session",
+                )
                 stopSelf()
             }
         }
@@ -1239,7 +1255,18 @@ class PlayerService : MediaSessionService() {
             mode = mode,
         )
         publishDecoderState()
-        if (retry == null) return
+        if (retry == null) {
+            Logger.logWarning(
+                tag = DECODER_LOG_TAG,
+                message = "decoder failure on $trackType (mode=$mode) for " +
+                    "${mediaSession?.player?.currentMediaItem?.mediaId} with no recovery left",
+            )
+            return
+        }
+        Logger.logWarning(
+            tag = DECODER_LOG_TAG,
+            message = "decoder failure on $trackType (mode=$mode), retrying with $retry",
+        )
         serviceScope.launch {
             if (!retryDecoderWith(retry = retry)) decoderRecoveryManager.onNonDecoderError()
         }
@@ -1250,6 +1277,10 @@ class PlayerService : MediaSessionService() {
             DecoderTrackType.VIDEO -> decoderManager.selectVideoDecoder(mode = mode)
             DecoderTrackType.AUDIO -> decoderManager.selectAudioDecoder(mode = mode)
         }
+        Logger.logInfo(
+            tag = DECODER_LOG_TAG,
+            message = "$trackType decoder mode set to $mode",
+        )
         val player = mediaSession?.player
         val mediaItem = player?.currentMediaItem
         if (mediaItem != null) {
@@ -1399,6 +1430,7 @@ private val DecoderTrackType.mediaTrackType: Int
     }
 
 private const val DECODER_LOG_TAG = "Decoder"
+private const val PLAYER_LOG_TAG = "PlayerService"
 private const val MAX_SESSION_ARTWORK_SIZE = 500
 
 @get:UnstableApi

@@ -2,6 +2,7 @@ package dev.anilbeesetti.nextplayer.feature.network.screens.list
 
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.data.repository.NetworkConnectionRepository
 import dev.anilbeesetti.nextplayer.core.media.network.keys.SshKeyStore
 import dev.anilbeesetti.nextplayer.core.model.NetworkAuthentication
@@ -75,8 +76,13 @@ class NetworkViewModel(
                 )
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 // There is no deletion error UI yet; key cleanup restores the row before failure.
+                Logger.logWarning(
+                    tag = TAG,
+                    message = "deleting network connection $id failed",
+                    throwable = error,
+                )
             }
         }
     }
@@ -119,3 +125,5 @@ internal suspend fun deleteConnectionAndCleanup(
         }
     }
 }
+
+private const val TAG = "NetworkViewModel"

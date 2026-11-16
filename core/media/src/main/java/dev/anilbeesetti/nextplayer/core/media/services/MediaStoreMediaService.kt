@@ -9,9 +9,11 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.common.di.DiQualifiers
 import dev.anilbeesetti.nextplayer.core.common.extensions.VIDEO_COLLECTION_URI
 import dev.anilbeesetti.nextplayer.core.common.extensions.prettyName
+import dev.anilbeesetti.nextplayer.core.common.millisSince
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +49,7 @@ class MediaStoreMediaService(
 ) : MediaService {
 
     companion object {
+        private const val TAG = "MediaStoreMediaService"
         private const val OBSERVER_DEBOUNCE_MS = 250L
 
         private val VIDEO_PROJECTION = arrayOf(
@@ -137,6 +140,11 @@ class MediaStoreMediaService(
                 if (e.message?.startsWith(prefix = "Volume ") == true &&
                     e.message?.endsWith(suffix = " not found") == true
                 ) {
+                    Logger.logWarning(
+                        tag = TAG,
+                        message = "media volume disappeared during query, reporting empty: " +
+                            e.message,
+                    )
                     emptyList()
                 } else {
                     throw e
@@ -180,15 +188,32 @@ class MediaStoreMediaService(
         includeHidden: Boolean,
         respectNoMedia: Boolean,
     ): List<MediaVideo> = withContext(Dispatchers.IO) {
+        val startedAt = System.nanoTime()
         val mediaStoreVideos = queryVideos(folderPath = folderPath)
-        if (!includeHidden) return@withContext mediaStoreVideos
+        if (!includeHidden) {
+            Logger.logInfo(
+                tag = TAG,
+                message = "media scan (mediastore only) found ${mediaStoreVideos.size} videos " +
+                    "for folder=$folderPath respectNoMedia=$respectNoMedia " +
+                    "in ${millisSince(startedAt)}ms",
+            )
+            return@withContext mediaStoreVideos
+        }
 
         val hiddenVideos = hiddenVideoScanner.scan(
             folderPath,
             respectNoMedia,
         )
         val knownPaths = mediaStoreVideos.mapTo(mutableSetOf()) { it.path }
-        return@withContext mediaStoreVideos + hiddenVideos.filter { it.path !in knownPaths }
+        val additionalHidden = hiddenVideos.filter { it.path !in knownPaths }
+        Logger.logInfo(
+            tag = TAG,
+            message = "media scan found ${mediaStoreVideos.size} indexed + " +
+                "${additionalHidden.size} hidden (${hiddenVideos.size - additionalHidden.size} " +
+                "duplicates dropped) for folder=$folderPath respectNoMedia=$respectNoMedia " +
+                "in ${millisSince(startedAt)}ms",
+        )
+        return@withContext mediaStoreVideos + additionalHidden
     }
 
     override fun invalidateHiddenCache() {

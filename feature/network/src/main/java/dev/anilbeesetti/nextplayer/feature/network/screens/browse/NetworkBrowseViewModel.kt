@@ -3,6 +3,7 @@ package dev.anilbeesetti.nextplayer.feature.network.screens.browse
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.data.repository.MediaRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.NetworkConnectionRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.PreferencesRepository
@@ -290,12 +291,21 @@ class NetworkBrowseViewModel(
     override fun onCleared() {
         val client = client ?: return
         // Best-effort disconnect on a detached IO scope, since viewModelScope is already cancelled.
-        CoroutineScope(Dispatchers.IO).launch { runCatching { client.disconnect() } }
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { client.disconnect() }
+                .onFailure { error ->
+                    Logger.logWarning(
+                        tag = TAG,
+                        message = "browse client disconnect failed: $error",
+                    )
+                }
+        }
     }
 }
 
 sealed interface NetworkBrowseAction {
     data object NavigateUp : NetworkBrowseAction
+
     data class OpenFolder(val file: NetworkFile) : NetworkBrowseAction
 
     data class UpdateQuickSettings(val layoutMode: MediaLayoutMode, val sort: Sort) :
@@ -319,3 +329,5 @@ private fun Throwable.toNetworkBrowseError(): NetworkBrowseError {
         },
     )
 }
+
+private const val TAG = "NetworkBrowseViewModel"

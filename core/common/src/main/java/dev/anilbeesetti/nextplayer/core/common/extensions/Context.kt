@@ -20,6 +20,7 @@ import android.util.Log
 import android.util.TypedValue
 import androidx.core.graphics.drawable.toBitmapOrNull
 import androidx.core.text.isDigitsOnly
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.InputStream
@@ -361,7 +362,12 @@ suspend fun Context.convertToUTF8(uri: Uri, charset: Charset? = null): Uri =
                 }
             }
         } catch (exception: Exception) {
-            exception.printStackTrace()
+            // The subtitle plays with its original encoding instead; a failed probe must not
+            // stop playback, but it has to be visible in the logs.
+            Logger.logWarning(
+                tag = TAG,
+                message = "subtitle charset conversion failed for $uri, using it as-is: $exception",
+            )
             uri
         }
     }
@@ -556,3 +562,5 @@ fun Context.appIcon(): Bitmap? = packageManager.getApplicationInfo(
 val Context.isPipFeatureSupported: Boolean
     get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
         packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+private const val TAG = "ContextExtensions"
