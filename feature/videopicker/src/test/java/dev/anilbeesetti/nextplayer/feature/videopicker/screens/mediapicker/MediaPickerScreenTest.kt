@@ -28,6 +28,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.anilbeesetti.nextplayer.core.domain.MediaHolder
 import dev.anilbeesetti.nextplayer.core.model.ApplicationPreferences
 import dev.anilbeesetti.nextplayer.core.model.Folder
+import dev.anilbeesetti.nextplayer.core.model.MediaLayoutMode
 import dev.anilbeesetti.nextplayer.core.model.MediaViewMode
 import dev.anilbeesetti.nextplayer.core.model.PlaylistSummary
 import dev.anilbeesetti.nextplayer.core.model.PlaylistType
@@ -164,6 +165,39 @@ class MediaPickerScreenTest {
         composeRule.onNodeWithContentDescription(label = "Play").requestFocus()
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionUp) }
         composeRule.onNodeWithText(text = "Clip").assertIsFocused()
+    }
+
+    @Test
+    fun gridLayoutRendersVideosWithThumbnails() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VIDEO)
+        val video = Video.sample.copy(
+            nameWithExtension = "Clip.mp4",
+            uriString = "file:///storage/emulated/0/.Movies/Clip.mp4",
+        )
+        composeRule.setContent {
+            NextPlayerTheme {
+                MediaPickerScreenContent(
+                    state = MediaPickerUiState(
+                        folderName = ".Movies",
+                        mediaDataState = DataState.Success(
+                            value = MediaHolder(
+                                videos = listOf(element = video),
+                                folders = emptyList(),
+                            ),
+                        ),
+                        preferences = ApplicationPreferences(
+                            mediaViewMode = MediaViewMode.VIDEOS,
+                            mediaLayoutMode = MediaLayoutMode.GRID,
+                        ),
+                    ),
+                )
+            }
+        }
+
+        // Grid items are sized with IntrinsicSize.Min, which must never reach a
+        // SubcomposeLayout (BoxWithConstraints) inside the thumbnail.
+        composeRule.onNodeWithText(text = "Clip").assertIsDisplayed()
     }
 
     @Test
