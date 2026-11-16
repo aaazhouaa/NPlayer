@@ -186,4 +186,5 @@ object NextIcons {
     val Fingerprint = Icons.Rounded.Fingerprint
     val DragHandle = Icons.Rounded.DragHandle
     val Reorder = Icons.Rounded.SwapVert
+    val MarkRead = Icons.Rounded.DoneAll
 }

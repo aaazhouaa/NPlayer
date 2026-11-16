@@ -120,6 +120,8 @@ class MediaPickerViewModel(
 
             is MediaPickerAction.OnSearchClick -> output.openSearch()
 
+            is MediaPickerAction.OnMarkAsReadClick -> markFolderAsRead()
+
             is MediaPickerAction.OnVaultClick -> output.openVault()
 
             is MediaPickerAction.Refresh -> refresh()
@@ -231,6 +233,17 @@ class MediaPickerViewModel(
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Marks every video beneath the current folder as read, which clears the "new" counts
+     * on the folder and its subfolders. A null [folderPath] covers the whole library.
+     */
+    private fun markFolderAsRead() {
+        viewModelScope.launch {
+            val videos = getSortedVideosUseCase(folderPath).first()
+            mediaRepository.markVideosAsRead(uris = videos.map { it.uriString })
         }
     }
 
@@ -638,6 +651,7 @@ sealed interface MediaPickerAction {
     data class OnFolderClick(val folderPath: String) : MediaPickerAction
     data object OnSettingsClick : MediaPickerAction
     data object OnSearchClick : MediaPickerAction
+    data object OnMarkAsReadClick : MediaPickerAction
     data object OnVaultClick : MediaPickerAction
     data object Refresh : MediaPickerAction
     data class RenameVideo(val uri: Uri, val to: String) : MediaPickerAction

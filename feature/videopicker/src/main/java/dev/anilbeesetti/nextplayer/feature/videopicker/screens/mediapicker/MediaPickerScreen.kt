@@ -320,6 +320,15 @@ internal fun MediaPickerScreenContent(
                             )
                         }
                         IconButton(
+                            onClick = { onAction(MediaPickerAction.OnMarkAsReadClick) },
+                            modifier = topBarDownModifier.tvFocusRing(isTv = isTv),
+                        ) {
+                            Icon(
+                                imageVector = NextIcons.MarkRead,
+                                contentDescription = stringResource(id = R.string.mark_as_read),
+                            )
+                        }
+                        IconButton(
                             onClick = { showQuickSettingsDialog = true },
                             modifier = topBarDownModifier.tvFocusRing(isTv = isTv),
                         ) {

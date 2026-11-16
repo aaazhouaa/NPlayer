@@ -59,6 +59,14 @@ interface MediaRepository {
         lastPlayedTime: Long,
         duration: Long? = null,
     )
+
+    /**
+     * Marks videos as read by recording a last-played time, which clears their "new" state.
+     *
+     * Unlike [updateMediumLastPlayedTime] this ignores the watch-history preference: it is an
+     * explicit user action, not automatic playback recording.
+     */
+    suspend fun markVideosAsRead(uris: List<String>)
     suspend fun updateMediumPosition(uri: String, position: Long)
     suspend fun updateMediumAudioTrack(uri: String, audioTrackIndex: Int)
     suspend fun updateMediumSubtitleTrack(uri: String, subtitleTrackIndex: Int)

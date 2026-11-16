@@ -6,6 +6,7 @@ import dev.anilbeesetti.nextplayer.core.data.repository.MediaRepository
 import dev.anilbeesetti.nextplayer.core.model.Folder
 import dev.anilbeesetti.nextplayer.core.model.MediaInfo
 import dev.anilbeesetti.nextplayer.core.model.Video
+import java.util.Date
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -56,6 +57,14 @@ class FakeMediaRepository : MediaRepository {
         lastPlayedTime: Long,
         duration: Long?,
     ) {
+    }
+
+    override suspend fun markVideosAsRead(uris: List<String>) {
+        val now = System.currentTimeMillis()
+        videos.replaceAll { video ->
+            if (video.uriString in uris) video.copy(lastPlayedAt = Date(now)) else video
+        }
+        notifyMediaChanged()
     }
 
     override suspend fun updateMediumPosition(uri: String, position: Long) {

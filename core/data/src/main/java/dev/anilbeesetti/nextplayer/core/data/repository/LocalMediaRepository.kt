@@ -237,6 +237,18 @@ class LocalMediaRepository(
         }
     }
 
+    override suspend fun markVideosAsRead(uris: List<String>) {
+        if (uris.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val existingStates = mediumStateDao.getAll().first().associateBy { it.uriString }
+        mediumStateDao.upsertAll(
+            mediaStates = uris.distinct().map { uri ->
+                (existingStates[uri] ?: MediumStateEntity(uriString = uri))
+                    .copy(lastPlayedTime = now)
+            },
+        )
+    }
+
     override suspend fun updateMediumPosition(uri: String, position: Long) {
         mediumStateDao.update(uri = uri) { it.copy(playbackPosition = position) }
     }

@@ -332,6 +332,7 @@
     <string name="delay">Delay</string>
     <string name="speed">Speed</string>
     <string name="search">Search</string>
+    <string name="mark_as_read">Mark as read</string>
     <string name="search_videos_and_folders">Search videos and folders</string>
     <string name="recent_searches">Recent searches</string>
     <string name="popular_folders">Popular folders</string>
