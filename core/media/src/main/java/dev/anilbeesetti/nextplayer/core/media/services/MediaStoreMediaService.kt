@@ -91,6 +91,7 @@ class MediaStoreMediaService(
             awaitClose { context.contentResolver.unregisterContentObserver(observer) }
         }.debounce(OBSERVER_DEBOUNCE_MS.milliseconds),
         manualRefresh,
+        hiddenVideoScanner.observeCacheUpdates(),
     )
         .shareIn(
             scope = applicationScope,
@@ -227,6 +228,7 @@ class MediaStoreMediaService(
     private fun Uri.toFileMediaVideo(): MediaVideo? {
         val file = File(path ?: return null)
         if (!file.isFile) return null
+        val metadata = file.readVideoMetadata()
         return MediaVideo(
             id = file.path.hashCode().toLong(),
             uri = this,
@@ -234,10 +236,10 @@ class MediaStoreMediaService(
             title = file.name,
             parentPath = file.parent ?: "/",
             displayName = file.name,
-            duration = 0L,
+            duration = metadata?.duration ?: 0L,
             size = file.length(),
-            width = 0,
-            height = 0,
+            width = metadata?.width ?: 0,
+            height = metadata?.height ?: 0,
             dateModified = file.lastModified(),
             dateAdded = file.lastModified(),
             isHidden = file.path.split(File.separator).any { it.startsWith(".") },

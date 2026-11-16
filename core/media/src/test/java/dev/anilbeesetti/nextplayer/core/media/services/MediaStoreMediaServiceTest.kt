@@ -4,6 +4,7 @@ import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
 import android.database.MatrixCursor
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import dev.anilbeesetti.nextplayer.core.common.extensions.VIDEO_COLLECTION_URI
 import java.io.File
@@ -13,6 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -28,6 +30,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowContentResolver
+import org.robolectric.shadows.ShadowMediaMetadataRetriever
 
 @RunWith(RobolectricTestRunner::class)
 @Config(
@@ -41,7 +44,10 @@ class MediaStoreMediaServiceTest {
     private val service = MediaStoreMediaService(
         context = context,
         applicationScope = scope,
-        hiddenVideoScanner = HiddenVideoScanner(context),
+        hiddenVideoScanner = HiddenVideoScanner(
+            context = context,
+            applicationScope = scope,
+        ),
     )
 
     @Before
@@ -135,6 +141,67 @@ class MediaStoreMediaServiceTest {
         provider.failure = null
         provider.returnNull = true
         assertThrows(IllegalStateException::class.java) { runBlocking { service.fetchVideos() } }
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun `observing a hidden folder emits the list and then the enriched list`() = runBlocking {
+        // sdk 28 needs no all-files-access permission for the scanner to run.
+        ShadowMediaMetadataRetriever.reset()
+        val hiddenRoot = File(
+            context.cacheDir,
+            ".Movies",
+        ).apply { mkdirs() }
+        val video = File(
+            hiddenRoot,
+            "episode.mkv",
+        ).apply { writeText(text = "video") }
+        ShadowMediaMetadataRetriever.addMetadata(
+            video.absolutePath,
+            MediaMetadataRetriever.METADATA_KEY_DURATION,
+            "600000",
+        )
+        ShadowMediaMetadataRetriever.addMetadata(
+            video.absolutePath,
+            MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH,
+            "1920",
+        )
+        ShadowMediaMetadataRetriever.addMetadata(
+            video.absolutePath,
+            MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT,
+            "1080",
+        )
+
+        val emissions = mutableListOf<List<MediaVideo>>()
+        val collector = launch {
+            service.observeVideos(
+                folderPath = hiddenRoot.absolutePath,
+                includeHidden = true,
+            ).collect { videos -> emissions.add(element = videos) }
+        }
+        try {
+            withTimeout(timeMillis = 10_000) {
+                while (emissions.size < 2) {
+                    delay(timeMillis = 50)
+                }
+            }
+        } finally {
+            collector.cancelAndJoin()
+        }
+        video.delete()
+
+        assertEquals(
+            2,
+            emissions.size,
+        )
+        assertEquals(
+            0L,
+            emissions[0].single { it.path == video.absolutePath }.duration,
+        )
+        assertEquals(
+            600_000L,
+            emissions[1].single { it.path == video.absolutePath }.duration,
+        )
     }
 
     private class VideoProvider : ContentProvider() {

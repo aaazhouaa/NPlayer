@@ -1,9 +1,18 @@
 package dev.anilbeesetti.nextplayer.core.media.services
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import java.io.File
 import kotlin.io.path.createTempDirectory
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -12,19 +21,32 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowMediaMetadataRetriever
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class HiddenVideoScannerTest {
 
+    private lateinit var context: Context
+    private lateinit var scope: CoroutineScope
     private lateinit var root: File
     private lateinit var scanner: HiddenVideoScanner
 
     @Before
     fun setUp() {
-        val context: Context = RuntimeEnvironment.getApplication()
-        scanner = HiddenVideoScanner(context)
+        ShadowMediaMetadataRetriever.reset()
+        context = RuntimeEnvironment.getApplication()
+        scope = CoroutineScope(context = SupervisorJob() + Dispatchers.Default)
+        scanner = HiddenVideoScanner(
+            context = context,
+            applicationScope = scope,
+        )
         root = createTempDirectory("hidden-video-scanner").toFile()
+    }
+
+    @After
+    fun tearDown() {
+        scope.cancel()
     }
 
     @Test
@@ -168,5 +190,318 @@ class HiddenVideoScannerTest {
         )
         assertTrue(paths.contains(videoInDeeperDir.path))
         assertTrue(result.all { it.isHidden })
+    }
+
+    @Test
+    fun `reads duration and resolution from hidden video files`() = runBlocking {
+        val hiddenDir = File(
+            root,
+            ".Movies",
+        ).apply { mkdirs() }
+        val video = File(
+            hiddenDir,
+            "episode.mkv",
+        ).apply { writeText("video") }
+        addVideoMetadata(
+            path = video.absolutePath,
+            duration = "600000",
+            width = "1920",
+            height = "1080",
+        )
+
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        val result = scanner.scan(root.absolutePath)
+
+        val mediaVideo = result.single { it.path == video.path }
+        assertEquals(
+            600_000L,
+            mediaVideo.duration,
+        )
+        assertEquals(
+            1920,
+            mediaVideo.width,
+        )
+        assertEquals(
+            1080,
+            mediaVideo.height,
+        )
+    }
+
+    @Test
+    @Config(sdk = [33])
+    fun `reads metadata on api levels that close the retriever`() {
+        val video = File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+        addVideoMetadata(
+            path = video.absolutePath,
+            duration = "61000",
+            width = "1280",
+            height = "720",
+        )
+
+        val metadata = video.readVideoMetadata()
+
+        assertEquals(
+            61_000L,
+            metadata?.duration,
+        )
+        assertEquals(
+            1280,
+            metadata?.width,
+        )
+        assertEquals(
+            720,
+            metadata?.height,
+        )
+    }
+
+    @Test
+    fun `files without readable metadata keep zeroed fields`() = runBlocking {
+        val video = File(
+            root,
+            ".broken.mp4",
+        ).apply { writeText("not a video") }
+
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        val result = scanner.scan(root.absolutePath)
+
+        val mediaVideo = result.single { it.path == video.path }
+        assertEquals(
+            0L,
+            mediaVideo.duration,
+        )
+        assertEquals(
+            0,
+            mediaVideo.width,
+        )
+        assertEquals(
+            0,
+            mediaVideo.height,
+        )
+    }
+
+    @Test
+    fun `scan emits the list before metadata enrichment finishes`() = runBlocking {
+        val video = File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+        addVideoMetadata(
+            path = video.absolutePath,
+            duration = "42000",
+            width = "1920",
+            height = "1080",
+        )
+
+        // The first emission is complete except for metadata, which arrives from the
+        // background pass only after the list has been returned.
+        val first = scanner.scan(root.absolutePath)
+        assertEquals(
+            0L,
+            first.single().duration,
+        )
+
+        awaitEnrichment(scanner)
+
+        val enriched = scanner.scan(root.absolutePath)
+        assertEquals(
+            42_000L,
+            enriched.single().duration,
+        )
+    }
+
+    @Test
+    fun `subfolder scan reuses metadata parsed for the parent folder`() = runBlocking {
+        val hiddenRoot = File(
+            root,
+            ".Movies",
+        ).apply { mkdirs() }
+        val seasonDir = File(
+            hiddenRoot,
+            "Season1",
+        ).apply { mkdirs() }
+        val video = File(
+            seasonDir,
+            "episode.mkv",
+        ).apply { writeText("video") }
+        addVideoMetadata(
+            path = video.absolutePath,
+            duration = "600000",
+            width = "1920",
+            height = "1080",
+        )
+
+        scanner.scan(hiddenRoot.absolutePath)
+        awaitEnrichment(scanner)
+
+        // Navigating into the subfolder must not parse the same files again: the first
+        // emission already carries the duration parsed during the parent scan.
+        val seasonVideos = scanner.scan(seasonDir.absolutePath)
+
+        val mediaVideo = seasonVideos.single()
+        assertEquals(
+            600_000L,
+            mediaVideo.duration,
+        )
+        assertEquals(
+            1920,
+            mediaVideo.width,
+        )
+        assertEquals(
+            1080,
+            mediaVideo.height,
+        )
+    }
+
+    @Test
+    fun `replaced files are parsed again`() = runBlocking {
+        val video = File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+        addVideoMetadata(
+            path = video.absolutePath,
+            duration = "1000",
+            width = "640",
+            height = "480",
+        )
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        // Same path, different size and modification time: the cached entry is stale.
+        video.writeText("a much longer video")
+        video.setLastModified(video.lastModified() + 5_000)
+        addVideoMetadata(
+            path = video.absolutePath,
+            duration = "2000",
+            width = "1280",
+            height = "720",
+        )
+        scanner.invalidate()
+
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        val result = scanner.scan(root.absolutePath)
+        assertEquals(
+            2_000L,
+            result.single().duration,
+        )
+    }
+
+    @Test
+    fun `persisted scan cache restores duration and resolution`() = runBlocking {
+        val video = File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+        addVideoMetadata(
+            path = video.absolutePath,
+            duration = "123456",
+            width = "3840",
+            height = "2160",
+        )
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        // A fresh scanner has an empty in-memory cache and reads the persisted scan instead.
+        val reloaded = HiddenVideoScanner(
+            context = context,
+            applicationScope = scope,
+        ).scan(root.absolutePath)
+
+        val mediaVideo = reloaded.single()
+        assertEquals(
+            video.path,
+            mediaVideo.path,
+        )
+        assertEquals(
+            123_456L,
+            mediaVideo.duration,
+        )
+        assertEquals(
+            3840,
+            mediaVideo.width,
+        )
+        assertEquals(
+            2160,
+            mediaVideo.height,
+        )
+    }
+
+    @Test
+    fun `scan cache without persisted metadata is discarded`() = runBlocking {
+        val video = File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        // Rewrite the cache in the format used before metadata was persisted.
+        val cacheFile = context.filesDir.listFiles()!!.single { it.name.startsWith("hidden_scan_") }
+        cacheFile.writeText(video.path)
+        addVideoMetadata(
+            path = video.absolutePath,
+            duration = "999000",
+            width = "640",
+            height = "480",
+        )
+
+        val reloadedScanner = HiddenVideoScanner(
+            context = context,
+            applicationScope = scope,
+        )
+        reloadedScanner.scan(root.absolutePath)
+        awaitEnrichment(reloadedScanner)
+        val result = reloadedScanner.scan(root.absolutePath)
+
+        val mediaVideo = result.single()
+        assertEquals(
+            999_000L,
+            mediaVideo.duration,
+        )
+        assertEquals(
+            640,
+            mediaVideo.width,
+        )
+        assertEquals(
+            480,
+            mediaVideo.height,
+        )
+    }
+
+    /** Waits until the background metadata pass replaced the cached scan. */
+    private suspend fun awaitEnrichment(target: HiddenVideoScanner, timeoutMillis: Long = 5_000) {
+        val initial = target.scan(root.absolutePath)
+        withTimeout(timeoutMillis) {
+            while (target.scan(root.absolutePath) === initial) {
+                delay(25.milliseconds)
+            }
+        }
+    }
+
+    private fun addVideoMetadata(path: String, duration: String, width: String, height: String) {
+        ShadowMediaMetadataRetriever.addMetadata(
+            path,
+            MediaMetadataRetriever.METADATA_KEY_DURATION,
+            duration,
+        )
+        ShadowMediaMetadataRetriever.addMetadata(
+            path,
+            MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH,
+            width,
+        )
+        ShadowMediaMetadataRetriever.addMetadata(
+            path,
+            MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT,
+            height,
+        )
     }
 }

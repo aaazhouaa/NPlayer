@@ -6,8 +6,23 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import androidx.core.net.toUri
+import dev.anilbeesetti.nextplayer.core.common.Logger
+import dev.anilbeesetti.nextplayer.core.common.di.DiQualifiers
+import dev.anilbeesetti.nextplayer.core.common.extensions.mapAsync
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
+import org.koin.core.annotation.Named
 import org.koin.core.annotation.Single
 
 /**
@@ -22,14 +37,39 @@ import org.koin.core.annotation.Single
  * Files that MediaStore already indexes are skipped: they are already visible in the library and
  * must not be duplicated. The `file:` uri returned for genuinely hidden files is consumed directly
  * by the player.
+ *
+ * Duration and resolution are parsed in a background pass after the list is returned, so a slow
+ * (or very large) hidden library never delays the picker. [observeCacheUpdates] emits once that
+ * pass completes so lists can re-query.
  */
 @Single
-class HiddenVideoScanner(private val context: Context) {
+class HiddenVideoScanner(
+    private val context: Context,
+    @Named(DiQualifiers.APPLICATION_SCOPE) private val applicationScope: CoroutineScope,
+) {
 
     private data class ScanKey(val root: String?, val respectNoMedia: Boolean)
 
     /** In-memory scan results keyed by root + .nomedia policy, avoiding repeated directory walks. */
     private val cache = ConcurrentHashMap<ScanKey, List<MediaVideo>>()
+
+    /**
+     * Metadata parsed per file, so navigating between a folder and its subfolders never parses
+     * the same file twice. Entries are keyed by path and validated against the file's size and
+     * modification time, so a replaced file is re-read.
+     */
+    private val metadataCache = ConcurrentHashMap<String, CachedFileMetadata>()
+
+    /** Background metadata passes, one per scan key, so concurrent scans don't duplicate work. */
+    private val enrichmentJobs = ConcurrentHashMap<ScanKey, Job>()
+
+    private val cacheUpdates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /**
+     * Emits when a background metadata pass finished, so the media list can re-query and pick
+     * up durations that were still unknown when the list was first emitted.
+     */
+    fun observeCacheUpdates(): Flow<Unit> = cacheUpdates.asSharedFlow()
 
     /**
      * Returns video files found under [root] that MediaStore skips.
@@ -52,6 +92,9 @@ class HiddenVideoScanner(private val context: Context) {
         cache[key]?.let { return it }
         loadFromDisk(key)?.let { cached ->
             cache[key] = cached
+            // Seed the per-file metadata so scans of subfolders reuse these values
+            // instead of parsing the same files again.
+            cached.forEach { video -> video.rememberMetadata() }
             return cached
         }
 
@@ -59,7 +102,7 @@ class HiddenVideoScanner(private val context: Context) {
         val mediaStorePaths = mediaStoreVideoPaths()
 
         val seen = mutableSetOf<String>()
-        val result = roots.flatMap { rootPath ->
+        val files = roots.flatMap { rootPath ->
             val rootFile = File(rootPath)
             scanDirectory(
                 directory = rootFile,
@@ -70,18 +113,67 @@ class HiddenVideoScanner(private val context: Context) {
                 ancestorHasNoMedia = rootFile.hasNoMediaAncestor(),
             )
         }
-        cache[key] = result
-        saveToDisk(
-            key,
-            result,
+
+        // The list is emitted right away. Metadata already parsed for a file (an earlier
+        // scan of a parent folder, a previous session's disk cache) is included immediately;
+        // only genuinely new files wait for the background pass below.
+        val videos = files.map { it.toMediaVideo(metadata = it.peekCachedVideoMetadata()) }
+        cache[key] = videos
+        enrichInBackground(
+            key = key,
+            files = files,
         )
-        return result
+        return videos
     }
 
     /** Drops both the in-memory and persisted caches so the next [scan] walks the file system again. */
     fun invalidate() {
+        enrichmentJobs.values.forEach { job -> job.cancel() }
+        enrichmentJobs.clear()
         cache.clear()
         clearDiskCache()
+    }
+
+    private data class CachedFileMetadata(
+        val size: Long,
+        val lastModified: Long,
+        val metadata: FileVideoMetadata,
+    )
+
+    /**
+     * Reads metadata for this file, reusing a previous parse while the file is unchanged.
+     * Parses only on a miss, so this must not run on the list's critical path.
+     */
+    private fun File.readCachedVideoMetadata(): FileVideoMetadata? {
+        peekCachedVideoMetadata()?.let { return it }
+        val metadata = readVideoMetadata() ?: return null
+        metadataCache[absolutePath] = CachedFileMetadata(
+            size = length(),
+            lastModified = lastModified(),
+            metadata = metadata,
+        )
+        return metadata
+    }
+
+    /** Cache-only lookup: never opens the file, so the list can be built without waiting. */
+    private fun File.peekCachedVideoMetadata(): FileVideoMetadata? {
+        val cached = metadataCache[absolutePath]
+        return cached
+            ?.takeIf { it.size == length() && it.lastModified == lastModified() }
+            ?.metadata
+    }
+
+    /** Stores already known metadata for this video's file. */
+    private fun MediaVideo.rememberMetadata() {
+        metadataCache[path] = CachedFileMetadata(
+            size = size,
+            lastModified = dateModified,
+            metadata = FileVideoMetadata(
+                duration = duration,
+                width = width,
+                height = height,
+            ),
+        )
     }
 
     private fun diskFile(key: ScanKey): File {
@@ -94,7 +186,11 @@ class HiddenVideoScanner(private val context: Context) {
 
     private fun saveToDisk(key: ScanKey, videos: List<MediaVideo>) {
         runCatching {
-            diskFile(key).writeText(videos.joinToString("\n") { it.path })
+            diskFile(key).writeText(
+                videos.joinToString(separator = "\n") { video ->
+                    "${video.path}\t${video.duration}\t${video.width}\t${video.height}"
+                },
+            )
         }
     }
 
@@ -102,12 +198,15 @@ class HiddenVideoScanner(private val context: Context) {
         val file = diskFile(key)
         if (!file.exists()) return null
         return runCatching {
-            val videos = file.readLines()
-                .asSequence()
+            val lines = file.readLines()
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
-                .mapNotNull { path -> File(path).takeIf { it.isFile }?.toMediaVideo() }
-                .toList()
+            if (lines.isNotEmpty() && '\t' !in lines.first()) {
+                // Written before metadata was persisted: drop it so the next scan repopulates.
+                file.delete()
+                return null
+            }
+            val videos = lines.mapNotNull { line -> line.toCachedMediaVideo() }.toList()
             if (videos.isEmpty()) file.delete()
             videos
         }.getOrNull()
@@ -119,21 +218,93 @@ class HiddenVideoScanner(private val context: Context) {
             ?.forEach { it.delete() }
     }
 
-    private fun File.toMediaVideo(): MediaVideo = MediaVideo(
-        id = absolutePath.hashCode().toLong(),
-        uri = toUri(),
-        path = absolutePath,
-        title = name,
-        parentPath = parent ?: "/",
-        displayName = name,
-        duration = 0L,
-        size = length(),
-        width = 0,
-        height = 0,
-        dateModified = lastModified(),
-        dateAdded = lastModified(),
-        isHidden = true,
-    )
+    /**
+     * Reads duration and resolution for every scanned file in the background.
+     *
+     * Opening a MediaMetadataRetriever is expensive, so concurrency is bounded: a large hidden
+     * library must not open all of its files at once. The cache and the disk snapshot are only
+     * replaced once the whole pass finished, so a partially enriched list is never persisted.
+     */
+    private fun enrichInBackground(key: ScanKey, files: List<File>) {
+        if (enrichmentJobs[key]?.isActive == true) return
+        enrichmentJobs[key] = applicationScope.launch {
+            try {
+                val permits = Semaphore(MAX_CONCURRENT_METADATA_READS)
+                val enriched = withContext(Dispatchers.IO) {
+                    val videos = files.mapAsync { file ->
+                        permits.withPermit {
+                            file.toMediaVideo(metadata = file.readCachedVideoMetadata())
+                        }
+                    }
+                    saveToDisk(
+                        key,
+                        videos,
+                    )
+                    videos
+                }
+                cache[key] = enriched
+                cacheUpdates.tryEmit(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The list is already visible with unknown durations; a failed pass must not
+                // take the app down. The next scan retries.
+                Logger.logError(
+                    tag = TAG,
+                    message = "Hidden media metadata enrichment failed: ${e.message}",
+                )
+            }
+        }
+    }
+
+    private fun File.toMediaVideo(metadata: FileVideoMetadata?): MediaVideo {
+        val canonicalPath = runCatching { canonicalPath }.getOrNull() ?: absolutePath
+        return MediaVideo(
+            id = canonicalPath.hashCode().toLong(),
+            uri = toUri(),
+            path = canonicalPath,
+            title = name,
+            parentPath = parent ?: "/",
+            displayName = name,
+            duration = metadata?.duration ?: 0L,
+            size = length(),
+            width = metadata?.width ?: 0,
+            height = metadata?.height ?: 0,
+            dateModified = lastModified(),
+            dateAdded = lastModified(),
+            isHidden = true,
+        )
+    }
+
+    /**
+     * Parses a persisted `path\tduration\twidth\theight` line. Fields are read from the
+     * right so paths that themselves contain tabs survive.
+     */
+    private fun String.toCachedMediaVideo(): MediaVideo? {
+        var rest = this
+        val height = rest.substringAfterLast('\t').toIntOrNull() ?: return null
+        rest = rest.substringBeforeLast('\t')
+        val width = rest.substringAfterLast('\t').toIntOrNull() ?: return null
+        rest = rest.substringBeforeLast('\t')
+        val duration = rest.substringAfterLast('\t').toLongOrNull() ?: return null
+        val path = rest.substringBeforeLast('\t')
+        val file = File(path).takeIf { it.isFile } ?: return null
+        return MediaVideo(
+            id = path.hashCode().toLong(),
+            uri = file.toUri(),
+            path = path,
+            title = file.name,
+            parentPath = file.parent ?: "/",
+            displayName = file.name,
+            duration = duration,
+            size = file.length(),
+            width = width,
+            height = height,
+            dateModified = file.lastModified(),
+            dateAdded = file.lastModified(),
+            isHidden = true,
+        )
+    }
 
     private fun scanDirectory(
         directory: File,
@@ -142,10 +313,10 @@ class HiddenVideoScanner(private val context: Context) {
         respectNoMedia: Boolean,
         isDirectoryHidden: Boolean = false,
         ancestorHasNoMedia: Boolean = false,
-    ): List<MediaVideo> {
+    ): List<File> {
         if (!directory.isDirectory) return emptyList()
 
-        val results = mutableListOf<MediaVideo>()
+        val results = mutableListOf<File>()
         val children = directory.listFiles() ?: return emptyList()
         val hasNoMediaMarker = children.any {
             it.name.equals(
@@ -192,21 +363,7 @@ class HiddenVideoScanner(private val context: Context) {
                 continue
             }
 
-            results += MediaVideo(
-                id = canonical.hashCode().toLong(),
-                uri = child.toUri(),
-                path = canonical,
-                title = child.name,
-                parentPath = child.parent ?: "/",
-                displayName = child.name,
-                duration = 0L,
-                size = child.length(),
-                width = 0,
-                height = 0,
-                dateModified = child.lastModified(),
-                dateAdded = child.lastModified(),
-                isHidden = true,
-            )
+            results += child
         }
 
         return results
@@ -281,6 +438,9 @@ class HiddenVideoScanner(private val context: Context) {
     }
 
     companion object {
+        private const val TAG = "HiddenVideoScanner"
+        private const val MAX_CONCURRENT_METADATA_READS = 4
+
         private val SUPPORTED_EXTENSIONS = setOf(
             "3gp",
             "3g2",
