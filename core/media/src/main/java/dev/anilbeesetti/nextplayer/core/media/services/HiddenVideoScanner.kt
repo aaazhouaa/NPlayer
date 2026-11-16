@@ -71,7 +71,6 @@ class HiddenVideoScanner(
      */
     private val firstSeenByPath = ConcurrentHashMap<String, Long>()
     private var firstSeenLoaded = false
-    private var firstSeenPersistedBefore = false
 
     /**
      * Metadata parsed per file, so navigating between a folder and its subfolders never parses
@@ -179,19 +178,20 @@ class HiddenVideoScanner(
         firstSeenLoaded = true
         val file = firstSeenRecordFile()
         if (!file.exists()) return
-        firstSeenPersistedBefore = true
-        runCatching {
-            file.readLines().forEach { line ->
-                val separator = line.indexOf('\t')
-                if (separator <= 0) return@forEach
-                val seconds = line.substring(separator + 1).trim().toLongOrNull() ?: return@forEach
-                firstSeenByPath[
-                    line.substring(
-                        0,
-                        separator,
-                    ),
-                ] = seconds
-            }
+        val lines = runCatching { file.readLines() }.getOrDefault(emptyList())
+        // Records written before discovery time became the seeding rule are discarded: they
+        // were seeded from file timestamps, which cannot express "added to the library".
+        if (lines.firstOrNull() != FIRST_SEEN_RECORD_HEADER) return
+        lines.drop(n = 1).forEach { line ->
+            val separator = line.indexOf('\t')
+            if (separator <= 0) return@forEach
+            val seconds = line.substring(separator + 1).trim().toLongOrNull() ?: return@forEach
+            firstSeenByPath[
+                line.substring(
+                    0,
+                    separator,
+                ),
+            ] = seconds
         }
     }
 
@@ -203,29 +203,29 @@ class HiddenVideoScanner(
         }
         runCatching {
             firstSeenRecordFile().writeText(
-                firstSeenByPath.entries.joinToString(separator = "\n") { (path, seconds) ->
-                    "$path\t$seconds"
+                buildString {
+                    appendLine(FIRST_SEEN_RECORD_HEADER)
+                    firstSeenByPath.entries.forEach { (path, seconds) ->
+                        append(path)
+                        append('\t')
+                        appendLine(seconds)
+                    }
                 },
             )
-            // A record now exists, so later discoveries must use discovery time rather than
-            // falling back to file timestamps.
-            firstSeenPersistedBefore = true
         }
     }
 
     /**
      * Epoch seconds at which [path] was first seen, recording it on first discovery.
      *
-     * Until any record exists the file's own timestamp is used, so enabling hidden media does
-     * not mark an existing library as entirely new.
+     * A file copied into a hidden folder keeps its original mtime, which would never read as
+     * "recently added"; discovery time is what MediaStore reports as DATE_ADDED, so it is what
+     * hidden files report too. The cost is that a library revealed for the first time counts
+     * as new until it ages past the threshold.
      */
     private fun firstSeenSecondsFor(path: String): Long {
         firstSeenByPath[path]?.let { return it }
-        val discoveredAt = if (firstSeenPersistedBefore) {
-            System.currentTimeMillis() / 1000L
-        } else {
-            File(path).lastModified() / 1000L
-        }
+        val discoveredAt = System.currentTimeMillis() / 1000L
         firstSeenByPath[path] = discoveredAt
         return discoveredAt
     }
@@ -544,6 +544,7 @@ class HiddenVideoScanner(
     companion object {
         private const val TAG = "HiddenVideoScanner"
         private const val MAX_CONCURRENT_METADATA_READS = 4
+        private const val FIRST_SEEN_RECORD_HEADER = "#hidden-first-seen-v2"
 
         /**
          * How long a scan snapshot stays usable. Hidden folders produce no MediaStore change

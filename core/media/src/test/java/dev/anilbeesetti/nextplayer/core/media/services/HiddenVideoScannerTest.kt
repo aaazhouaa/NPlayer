@@ -110,11 +110,53 @@ class HiddenVideoScannerTest {
         // Seconds, not milliseconds: Video.isNew and date sorting consume MediaStore's units.
         assertEquals(
             video.lastModified() / 1000L,
-            mediaVideo.dateAdded,
-        )
-        assertEquals(
-            video.lastModified() / 1000L,
             mediaVideo.dateModified,
+        )
+    }
+
+    @Test
+    fun `first discovered videos report discovery time as dateAdded`() = runBlocking {
+        val video = File(
+            root,
+            ".hidden.mp4",
+        ).apply {
+            writeText("video")
+            // A copied file keeps its original mtime, which must not decide "newly added".
+            setLastModified(System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000L)
+        }
+
+        val result = scanner.scan(root.absolutePath)
+
+        val mediaVideo = result.single { it.path == video.path }
+        assertTrue(
+            "dateAdded was ${mediaVideo.dateAdded}",
+            mediaVideo.dateAdded * 1000L > System.currentTimeMillis() - 60_000L,
+        )
+    }
+
+    @Test
+    fun `records seeded by an older version are rediscovered`() = runBlocking {
+        val video = File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+        scanner.scan(root.absolutePath)
+        // Simulate a record written before discovery time became the seeding rule.
+        val record = File(
+            context.filesDir,
+            "hidden_first_seen.tsv",
+        )
+        record.writeText(
+            "${video.absolutePath}\t${System.currentTimeMillis() / 1000L - 30L * 24 * 60 * 60}",
+        )
+        scanner.invalidate()
+
+        val result = scanner.scan(root.absolutePath)
+
+        val mediaVideo = result.single { it.path == video.path }
+        assertTrue(
+            "dateAdded was ${mediaVideo.dateAdded}",
+            mediaVideo.dateAdded * 1000L > System.currentTimeMillis() - 60_000L,
         )
     }
 
@@ -483,6 +525,7 @@ class HiddenVideoScannerTest {
         )
         scanner.scan(root.absolutePath)
         awaitEnrichment(scanner)
+        val firstSeen = scanner.scan(root.absolutePath).single().dateAdded
 
         // A fresh scanner has an empty in-memory cache and reads the persisted scan instead.
         val reloaded = HiddenVideoScanner(
@@ -496,7 +539,7 @@ class HiddenVideoScannerTest {
             mediaVideo.path,
         )
         assertEquals(
-            video.lastModified() / 1000L,
+            firstSeen,
             mediaVideo.dateAdded,
         )
         assertEquals(
