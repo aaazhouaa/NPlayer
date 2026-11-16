@@ -159,7 +159,8 @@ fun MediaView(
                         }
                     },
                     onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        // A light single tick: LongPress renders as a double pulse on some devices.
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                         selectionManager.toggleFolderSelection(folder = folder)
                     },
                 )
@@ -210,7 +211,8 @@ fun MediaView(
                         }
                     },
                     onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        // A light single tick: LongPress renders as a double pulse on some devices.
+                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                         selectionManager.toggleVideoSelection(video = video)
                     },
                 )
