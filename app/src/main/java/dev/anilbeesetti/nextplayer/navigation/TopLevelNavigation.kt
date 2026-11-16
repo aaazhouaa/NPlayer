@@ -49,6 +49,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -57,6 +58,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
@@ -93,6 +95,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
+import dev.anilbeesetti.nextplayer.core.common.Logger
 import dev.anilbeesetti.nextplayer.core.common.extensions.isTelevision
 import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.components.TopLevelFabKey
@@ -235,7 +238,46 @@ class TopLevelNavState(
                 entryProvider = entryProvider,
             )
         }
-        return stacksInUse.flatMap { decoratedByRoute.getValue(key = it) }.toMutableStateList()
+        val entries = stacksInUse.flatMap { decoratedByRoute.getValue(key = it) }
+            // Two entries with the same content key can never be composed at once: a stacked scene
+            // renders the entry below its top next to the top itself, and SaveableStateHolder
+            // rejects the repeated key with "Key ... was used multiple times". Duplicates reach
+            // this list from a repeated navigation (same folder or settings opened twice) or from
+            // two tabs holding the same destination; the first occurrence renders, the rest are
+            // dropped.
+            .distinctBy { it.contentKey }
+            .toMutableStateList()
+        LogStackChanges(
+            backStacks = backStacks,
+            stacksInUse = stacksInUse,
+        )
+        return entries
+    }
+}
+
+/**
+ * Records every push, pop and tab switch in the log. Catching navigation in one place keeps the
+ * log complete without touching each feature's navigate functions, and the entry right before a
+ * crash is usually what explains it.
+ */
+@Composable
+private fun TopLevelNavState.LogStackChanges(
+    backStacks: Map<NavKey, NavBackStack<NavKey>>,
+    stacksInUse: List<NavKey>,
+) {
+    LaunchedEffect(Unit) {
+        var previousStack: List<NavKey>? = null
+        snapshotFlow { stacksInUse.flatMap { route -> backStacks.getValue(key = route) } }
+            .collect { stack ->
+                val previous = previousStack
+                if (previous != null && previous != stack) {
+                    Logger.logInfo(
+                        tag = TAG,
+                        message = "navigation: $previous -> $stack",
+                    )
+                }
+                previousStack = stack
+            }
     }
 }
 
@@ -246,6 +288,8 @@ fun TopLevelNavState.isNavigationBetweenTopLevelDestinations(
     contains(initialState.entries.lastOrNull()?.contentKey) &&
         contains(targetState.entries.lastOrNull()?.contentKey)
 }
+
+private const val TAG = "Navigation"
 
 // Duration measured from the system activity transition (ColorOS 16 Settings), which apps can't
 // borrow directly for in-activity navigation. Pop matches push deliberately so back navigation

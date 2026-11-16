@@ -1,6 +1,6 @@
 package dev.anilbeesetti.nextplayer.navigation
 
-import androidx.compose.animation.core.Transition
+import androidx.compose.animation.EnterExitState
 import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -15,9 +15,11 @@ import androidx.navigation3.ui.LocalNavAnimatedContentScope
  *
  * Only the top entry is reported as [Scene.entries]: NavDisplay renders a shared entry solely in
  * the scene that claims it, so the entries below the top must stay unclaimed. While another scene
- * is transitioning in on top of this one, the entries below the top are not rendered here
- * either, because the outgoing scene already renders them; their composition moves into this
- * scene once the transition settles.
+ * is transitioning in on top of this one, the entries below the top are not rendered here either,
+ * because the outgoing scene already renders them; their composition moves into this scene once
+ * the transition settles. Rendering them in both scenes at once would compose the entry twice and
+ * register its SaveableStateProvider key twice, which crashes with "Key ... was used multiple
+ * times".
  */
 class StackedSceneStrategy(private val tabRootKeys: Set<Any>) : SceneStrategy<NavKey> {
 
@@ -58,10 +60,12 @@ private class StackedScene(
 
     @Composable
     private fun isIncomingTransitionTarget(): Boolean {
-        val visibility = LocalNavAnimatedContentScope.current.transition
-
-        @Suppress("UNCHECKED_CAST")
-        val scenes = visibility.parentTransition as? Transition<Scene<NavKey>> ?: return false
-        return scenes.targetState === this && scenes.currentState != scenes.targetState
+        // NavDisplay composes the incoming and the outgoing scene for the duration of a
+        // transition. Only the incoming one runs PreEnter -> Visible, which identifies it without
+        // depending on scene instances: those are recreated on every recomposition, so comparing
+        // them by identity stops matching and both scenes end up rendering the underlaid entries.
+        val enterExitTransition = LocalNavAnimatedContentScope.current.transition
+        return enterExitTransition.currentState != EnterExitState.Visible &&
+            enterExitTransition.targetState == EnterExitState.Visible
     }
 }
