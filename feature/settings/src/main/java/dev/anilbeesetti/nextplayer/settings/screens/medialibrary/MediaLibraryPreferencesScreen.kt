@@ -1,5 +1,9 @@
 package dev.anilbeesetti.nextplayer.settings.screens.medialibrary
 
+import android.content.Intent
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,33 +26,31 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.content.Intent
-import android.os.Build
-import android.os.Environment
-import android.provider.Settings
 import dev.anilbeesetti.nextplayer.core.model.ThumbnailGenerationStrategy
 import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.components.ClickablePreferenceItem
 import dev.anilbeesetti.nextplayer.core.ui.components.ListSectionTitle
 import dev.anilbeesetti.nextplayer.core.ui.components.NextDialog
 import dev.anilbeesetti.nextplayer.core.ui.components.NextTopAppBar
+import dev.anilbeesetti.nextplayer.core.ui.components.PreferenceSlider
 import dev.anilbeesetti.nextplayer.core.ui.components.PreferenceSwitch
+import dev.anilbeesetti.nextplayer.core.ui.components.WatchHistoryConfirmationDialog
 import dev.anilbeesetti.nextplayer.core.ui.components.rememberRestorableFocusState
 import dev.anilbeesetti.nextplayer.core.ui.components.restorableFocusGroup
 import dev.anilbeesetti.nextplayer.core.ui.components.restorableFocusItem
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusDown
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
+import kotlin.math.roundToInt
 
 @Composable
-fun MediaLibraryPreferencesScreen(
-    viewModel: MediaLibraryPreferencesViewModel,
-) {
+fun MediaLibraryPreferencesScreen(viewModel: MediaLibraryPreferencesViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     MediaLibraryPreferencesScreenContent(
@@ -57,7 +59,10 @@ fun MediaLibraryPreferencesScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3ExpressiveApi::class,
+)
 @Composable
 private fun MediaLibraryPreferencesScreenContent(
     state: MediaLibraryPreferencesUiState,
@@ -67,6 +72,7 @@ private fun MediaLibraryPreferencesScreenContent(
     val context = LocalContext.current
 
     var pendingRemovalPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var enableHistoryConfirmation by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
 
     val focusState = rememberRestorableFocusState()
 
@@ -75,7 +81,12 @@ private fun MediaLibraryPreferencesScreenContent(
             NextTopAppBar(
                 title = stringResource(id = R.string.media_library),
                 navigationIcon = {
-                    FilledTonalIconButton(onClick = { onAction(MediaLibraryPreferencesUiEvent.NavigateUp) }, modifier = Modifier.tvFocusDown(focusState.requester)) {
+                    FilledTonalIconButton(
+                        onClick = {
+                            onAction(MediaLibraryPreferencesUiEvent.NavigateUp)
+                        },
+                        modifier = Modifier.tvFocusDown(focusState.requester),
+                    ) {
                         Icon(
                             imageVector = NextIcons.ArrowBack,
                             contentDescription = stringResource(id = R.string.navigate_up),
@@ -90,8 +101,8 @@ private fun MediaLibraryPreferencesScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
-                .restorableFocusGroup(focusState)
-                .padding(innerPadding)
+                .restorableFocusGroup(state = focusState)
+                .padding(paddingValues = innerPadding)
                 .padding(horizontal = 16.dp),
         ) {
             ListSectionTitle(text = stringResource(id = R.string.media_library))
@@ -99,15 +110,46 @@ private fun MediaLibraryPreferencesScreenContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
-                    modifier = Modifier.restorableFocusItem(focusState, "mark_last_played"),
+                    modifier = Modifier.restorableFocusItem(
+                        state = focusState,
+                        key = "mark_last_played",
+                    ),
                     title = stringResource(id = R.string.mark_last_played_media),
                     description = stringResource(
                         id = R.string.mark_last_played_media_desc,
                     ),
                     icon = NextIcons.Check,
                     isChecked = preferences.markLastPlayedMedia,
-                    onClick = { onAction(MediaLibraryPreferencesUiEvent.ToggleMarkLastPlayedMedia) },
+                    onClick = {
+                        onAction(MediaLibraryPreferencesUiEvent.ToggleMarkLastPlayedMedia)
+                    },
                     isFirstItem = true,
+                    isLastItem = false,
+                )
+                PreferenceSlider(
+                    modifier = Modifier.restorableFocusItem(
+                        state = focusState,
+                        key = "mark_new_media",
+                    ),
+                    title = stringResource(id = R.string.mark_new_media),
+                    description = if (preferences.newVideoThresholdDays == 0) {
+                        stringResource(id = R.string.off)
+                    } else {
+                        pluralStringResource(
+                            id = R.plurals.days_count,
+                            preferences.newVideoThresholdDays,
+                            preferences.newVideoThresholdDays,
+                        )
+                    },
+                    icon = NextIcons.Update,
+                    value = preferences.newVideoThresholdDays.toFloat(),
+                    valueRange = 0f..30f,
+                    steps = 29,
+                    onValueChange = {
+                        onAction(
+                            MediaLibraryPreferencesUiEvent.UpdateNewVideoThreshold(it.roundToInt()),
+                        )
+                    },
                     isLastItem = true,
                 )
             }
@@ -117,7 +159,10 @@ private fun MediaLibraryPreferencesScreenContent(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 PreferenceSwitch(
-                    modifier = Modifier.restorableFocusItem(focusState, "show_hidden_files"),
+                    modifier = Modifier.restorableFocusItem(
+                        focusState,
+                        "show_hidden_files",
+                    ),
                     title = stringResource(id = R.string.show_hidden_files),
                     description = stringResource(id = R.string.show_hidden_files_desc),
                     icon = NextIcons.HideSource,
@@ -133,7 +178,10 @@ private fun MediaLibraryPreferencesScreenContent(
                     isLastItem = false,
                 )
                 PreferenceSwitch(
-                    modifier = Modifier.restorableFocusItem(focusState, "respect_no_media"),
+                    modifier = Modifier.restorableFocusItem(
+                        focusState,
+                        "respect_no_media",
+                    ),
                     title = stringResource(id = R.string.respect_no_media),
                     description = stringResource(id = R.string.respect_no_media_desc),
                     icon = NextIcons.FolderOff,
@@ -143,7 +191,10 @@ private fun MediaLibraryPreferencesScreenContent(
                     isLastItem = false,
                 )
                 ClickablePreferenceItem(
-                    modifier = Modifier.restorableFocusItem(focusState, "add_scan_folder"),
+                    modifier = Modifier.restorableFocusItem(
+                        focusState,
+                        "add_scan_folder",
+                    ),
                     title = stringResource(id = R.string.add_scan_folder),
                     description = stringResource(id = R.string.scan_folder_desc),
                     icon = NextIcons.Add,
@@ -153,7 +204,10 @@ private fun MediaLibraryPreferencesScreenContent(
                 )
                 preferences.scanFolders.forEachIndexed { index, path ->
                     ClickablePreferenceItem(
-                        modifier = Modifier.restorableFocusItem(focusState, "scan_folder_$path"),
+                        modifier = Modifier.restorableFocusItem(
+                            focusState,
+                            "scan_folder_$path",
+                        ),
                         title = path,
                         description = path,
                         icon = NextIcons.Folder,
@@ -164,7 +218,10 @@ private fun MediaLibraryPreferencesScreenContent(
                     )
                 }
                 ClickablePreferenceItem(
-                    modifier = Modifier.restorableFocusItem(focusState, "manage_folders"),
+                    modifier = Modifier.restorableFocusItem(
+                        state = focusState,
+                        key = "manage_folders",
+                    ),
                     title = stringResource(id = R.string.manage_folders),
                     description = stringResource(id = R.string.manage_folders_desc),
                     icon = NextIcons.FolderOff,
@@ -174,16 +231,58 @@ private fun MediaLibraryPreferencesScreenContent(
                 )
             }
 
+            ListSectionTitle(text = stringResource(id = R.string.history))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                PreferenceSwitch(
+                    modifier = Modifier.restorableFocusItem(
+                        state = focusState,
+                        key = "watch_history",
+                    ),
+                    title = stringResource(id = R.string.watch_history),
+                    description = stringResource(id = R.string.watch_history_desc),
+                    icon = NextIcons.History,
+                    isChecked = !preferences.isHistoryPaused,
+                    onClick = { enableHistoryConfirmation = preferences.isHistoryPaused },
+                    isFirstItem = true,
+                )
+                PreferenceSwitch(
+                    modifier = Modifier.restorableFocusItem(
+                        state = focusState,
+                        key = "network_watch_history",
+                    ),
+                    title = stringResource(id = R.string.network_watch_history),
+                    description = stringResource(id = R.string.network_watch_history_desc),
+                    icon = NextIcons.Network,
+                    enabled = !preferences.isHistoryPaused,
+                    isChecked = preferences.includeNetworkWatchHistory,
+                    onClick = {
+                        onAction(MediaLibraryPreferencesUiEvent.ToggleIncludeNetworkWatchHistory)
+                    },
+                    isLastItem = true,
+                )
+            }
+
             ListSectionTitle(text = stringResource(id = R.string.thumbnail))
             Column(
                 verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             ) {
                 ClickablePreferenceItem(
-                    modifier = Modifier.restorableFocusItem(focusState, "thumbnail"),
+                    modifier = Modifier.restorableFocusItem(
+                        state = focusState,
+                        key = "thumbnail",
+                    ),
                     title = stringResource(id = R.string.thumbnail_generation),
                     description = when (preferences.thumbnailGenerationStrategy) {
-                        ThumbnailGenerationStrategy.FIRST_FRAME -> stringResource(id = R.string.first_frame)
-                        ThumbnailGenerationStrategy.FRAME_AT_PERCENTAGE -> stringResource(R.string.frame_at_position)
+                        ThumbnailGenerationStrategy.FIRST_FRAME -> stringResource(
+                            id = R.string.first_frame,
+                        )
+
+                        ThumbnailGenerationStrategy.FRAME_AT_PERCENTAGE -> stringResource(
+                            R.string.frame_at_position,
+                        )
+
                         ThumbnailGenerationStrategy.HYBRID -> stringResource(id = R.string.hybrid)
                     },
                     icon = NextIcons.Image,
@@ -226,11 +325,23 @@ private fun MediaLibraryPreferencesScreenContent(
             },
         )
     }
+
+    enableHistoryConfirmation?.let { enableHistory ->
+        WatchHistoryConfirmationDialog(
+            enableHistory = enableHistory,
+            onConfirm = {
+                onAction(
+                    MediaLibraryPreferencesUiEvent.SetWatchHistoryEnabled(enabled = enableHistory),
+                )
+                enableHistoryConfirmation = null
+            },
+            onDismiss = { enableHistoryConfirmation = null },
+        )
+    }
 }
 
-private fun hasAllFilesAccess(context: android.content.Context): Boolean {
-    return Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
-}
+private fun hasAllFilesAccess(context: android.content.Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
 
 private fun launchAllFilesAccessSettings(context: android.content.Context) {
     val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

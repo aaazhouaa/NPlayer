@@ -12,6 +12,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.metadata
 import androidx.navigation3.ui.NavDisplay
+import dev.anilbeesetti.nextplayer.feature.network.LocalNetworkPermission
 import dev.anilbeesetti.nextplayer.feature.network.screens.addconnection.AddConnectionScreen
 import dev.anilbeesetti.nextplayer.feature.network.screens.addconnection.AddConnectionViewModel
 import dev.anilbeesetti.nextplayer.feature.network.screens.browse.NetworkBrowseScreen
@@ -32,11 +33,16 @@ data class AddConnectionRoute(val connectionId: Long? = null) : NavKey
 data class NetworkBrowseRoute(val connectionId: Long, val path: String? = null) : NavKey
 
 fun NavBackStack<NavKey>.navigateToAddConnection(connectionId: Long? = null) {
-    add(AddConnectionRoute(connectionId))
+    add(element = AddConnectionRoute(connectionId = connectionId))
 }
 
 fun NavBackStack<NavKey>.navigateToNetworkBrowse(connectionId: Long, path: String? = null) {
-    add(NetworkBrowseRoute(connectionId, path))
+    add(
+        element = NetworkBrowseRoute(
+            connectionId = connectionId,
+            path = path,
+        ),
+    )
 }
 
 fun EntryProviderScope<NavKey>.networkEntry(
@@ -62,35 +68,35 @@ fun EntryProviderScope<NavKey>.networkEntry(
     }
 }
 
-fun EntryProviderScope<NavKey>.addConnectionEntry(
-    onNavigateUp: () -> Unit,
-) {
+fun EntryProviderScope<NavKey>.addConnectionEntry(onNavigateUp: () -> Unit) {
     entry<AddConnectionRoute>(
         metadata = metadata {
-            put(NavDisplay.TransitionKey) {
+            put(key = NavDisplay.TransitionKey) {
                 slideInVertically { it } togetherWith scaleOut(targetScale = 0.95f)
             }
-            put(NavDisplay.PopTransitionKey) {
+            put(key = NavDisplay.PopTransitionKey) {
                 scaleIn(initialScale = 0.95f) togetherWith slideOutVertically { it }
             }
-            put(NavDisplay.PredictivePopTransitionKey) {
+            put(key = NavDisplay.PredictivePopTransitionKey) {
                 scaleIn(initialScale = 0.95f) togetherWith slideOutVertically { it }
             }
         },
     ) { key ->
-        val output = AddConnectionViewModel.Output(
-            navigateUp = onNavigateUp,
-        )
-        val viewModel = koinViewModel<AddConnectionViewModel>(
-            parameters = {
-                parametersOf(
-                    AddConnectionViewModel.Input(connectionId = key.connectionId),
-                    output,
-                )
-            },
-        )
-        SideEffect { viewModel.output = output }
-        AddConnectionScreen(viewModel = viewModel)
+        LocalNetworkPermission {
+            val output = AddConnectionViewModel.Output(
+                navigateUp = onNavigateUp,
+            )
+            val viewModel = koinViewModel<AddConnectionViewModel>(
+                parameters = {
+                    parametersOf(
+                        AddConnectionViewModel.Input(connectionId = key.connectionId),
+                        output,
+                    )
+                },
+            )
+            SideEffect { viewModel.output = output }
+            AddConnectionScreen(viewModel = viewModel)
+        }
     }
 }
 
@@ -100,20 +106,25 @@ fun EntryProviderScope<NavKey>.networkBrowseEntry(
     onNavigateToFolder: (connectionId: Long, path: String) -> Unit,
 ) {
     entry<NetworkBrowseRoute> { key ->
-        val output = NetworkBrowseViewModel.Output(
-            navigateUp = onNavigateUp,
-            playVideos = onPlayVideos,
-            openFolder = onNavigateToFolder,
-        )
-        val viewModel = koinViewModel<NetworkBrowseViewModel>(
-            parameters = {
-                parametersOf(
-                    NetworkBrowseViewModel.Input(connectionId = key.connectionId, path = key.path),
-                    output,
-                )
-            },
-        )
-        SideEffect { viewModel.output = output }
-        NetworkBrowseScreen(viewModel = viewModel)
+        LocalNetworkPermission {
+            val output = NetworkBrowseViewModel.Output(
+                navigateUp = onNavigateUp,
+                playVideos = onPlayVideos,
+                openFolder = onNavigateToFolder,
+            )
+            val viewModel = koinViewModel<NetworkBrowseViewModel>(
+                parameters = {
+                    parametersOf(
+                        NetworkBrowseViewModel.Input(
+                            connectionId = key.connectionId,
+                            path = key.path,
+                        ),
+                        output,
+                    )
+                },
+            )
+            SideEffect { viewModel.output = output }
+            NetworkBrowseScreen(viewModel = viewModel)
+        }
     }
 }

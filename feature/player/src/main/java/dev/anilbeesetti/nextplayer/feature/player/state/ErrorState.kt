@@ -10,19 +10,16 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.session.MediaController
 
 @UnstableApi
 @Composable
-fun rememberErrorState(player: MediaController): ErrorState {
-    val errorState = remember(player) { ErrorState(player) }
-    LaunchedEffect(player) { errorState.observe() }
+fun rememberErrorState(player: Player): ErrorState {
+    val errorState = remember(player) { ErrorState(player = player) }
+    LaunchedEffect(key1 = player) { errorState.observe() }
     return errorState
 }
 
-class ErrorState(
-    private val player: MediaController,
-) {
+class ErrorState(private val player: Player) {
     var playbackError: PlaybackException? by mutableStateOf(player.playerError)
         private set
 

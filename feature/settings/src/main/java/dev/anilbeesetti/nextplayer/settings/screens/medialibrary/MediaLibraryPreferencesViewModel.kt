@@ -2,6 +2,7 @@ package dev.anilbeesetti.nextplayer.settings.screens.medialibrary
 
 import androidx.lifecycle.viewModelScope
 import dev.anilbeesetti.nextplayer.core.common.service.system.SystemService
+import dev.anilbeesetti.nextplayer.core.data.repository.MediaRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.PreferencesRepository
 import dev.anilbeesetti.nextplayer.core.model.ApplicationPreferences
 import dev.anilbeesetti.nextplayer.core.ui.base.MviViewModel
@@ -17,6 +18,7 @@ import org.koin.core.annotation.KoinViewModel
 class MediaLibraryPreferencesViewModel(
     private val preferencesRepository: PreferencesRepository,
     private val systemService: SystemService,
+    private val mediaRepository: MediaRepository,
     @InjectedParam internal var output: Output,
 ) : MviViewModel<MediaLibraryPreferencesUiState, MediaLibraryPreferencesUiEvent>() {
 
@@ -26,15 +28,13 @@ class MediaLibraryPreferencesViewModel(
         val openThumbnails: () -> Unit,
     )
 
-    private val stateInternal = MutableStateFlow(MediaLibraryPreferencesUiState())
+    private val stateInternal = MutableStateFlow(value = MediaLibraryPreferencesUiState())
     override val state: StateFlow<MediaLibraryPreferencesUiState> = stateInternal.asStateFlow()
 
     init {
         viewModelScope.launch {
             preferencesRepository.applicationPreferences.collect {
-                stateInternal.update { currentState ->
-                    currentState.copy(preferences = it)
-                }
+                stateInternal.update { currentState -> currentState.copy(preferences = it) }
             }
         }
     }
@@ -42,13 +42,31 @@ class MediaLibraryPreferencesViewModel(
     override fun onAction(action: MediaLibraryPreferencesUiEvent) {
         when (action) {
             is MediaLibraryPreferencesUiEvent.NavigateUp -> output.navigateUp()
+
             is MediaLibraryPreferencesUiEvent.OpenFolders -> output.openFolders()
+
             is MediaLibraryPreferencesUiEvent.OpenThumbnails -> output.openThumbnails()
 
-            is MediaLibraryPreferencesUiEvent.ToggleMarkLastPlayedMedia -> toggleMarkLastPlayedMedia()
+            is MediaLibraryPreferencesUiEvent.ToggleMarkLastPlayedMedia ->
+                toggleMarkLastPlayedMedia()
+
+            is MediaLibraryPreferencesUiEvent.SetWatchHistoryEnabled -> setWatchHistoryEnabled(
+                action.enabled,
+            )
+
+            is MediaLibraryPreferencesUiEvent.ToggleIncludeNetworkWatchHistory ->
+                toggleIncludeNetworkWatchHistory()
+
+            is MediaLibraryPreferencesUiEvent.UpdateNewVideoThreshold -> updateNewVideoThreshold(
+                action.days,
+            )
+
             is MediaLibraryPreferencesUiEvent.ToggleShowHiddenFiles -> toggleShowHiddenFiles()
+
             is MediaLibraryPreferencesUiEvent.ToggleRespectNoMedia -> toggleRespectNoMedia()
+
             is MediaLibraryPreferencesUiEvent.AddScanFolder -> addScanFolder()
+
             is MediaLibraryPreferencesUiEvent.RemoveScanFolder -> removeScanFolder(action.path)
         }
     }
@@ -57,6 +75,36 @@ class MediaLibraryPreferencesViewModel(
         viewModelScope.launch {
             preferencesRepository.updateApplicationPreferences {
                 it.copy(markLastPlayedMedia = !it.markLastPlayedMedia)
+            }
+        }
+    }
+
+    private fun setWatchHistoryEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(isHistoryPaused = !enabled)
+            }
+            if (!enabled) mediaRepository.clearPlaybackHistory()
+        }
+    }
+
+    private fun toggleIncludeNetworkWatchHistory() {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(includeNetworkWatchHistory = !it.includeNetworkWatchHistory)
+            }
+        }
+    }
+
+    private fun updateNewVideoThreshold(days: Int) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(
+                    newVideoThresholdDays = days.coerceIn(
+                        minimumValue = 0,
+                        maximumValue = 30,
+                    ),
+                )
             }
         }
     }
@@ -82,7 +130,13 @@ class MediaLibraryPreferencesViewModel(
             val path = systemService.pickFolderPath()
             if (path != null) {
                 preferencesRepository.updateApplicationPreferences {
-                    val folders = if (path in it.scanFolders) it.scanFolders else it.scanFolders + path
+                    val folders = if (path in
+                        it.scanFolders
+                    ) {
+                        it.scanFolders
+                    } else {
+                        it.scanFolders + path
+                    }
                     it.copy(scanFolders = folders)
                 }
             }
@@ -108,6 +162,10 @@ sealed interface MediaLibraryPreferencesUiEvent {
     data object OpenThumbnails : MediaLibraryPreferencesUiEvent
 
     data object ToggleMarkLastPlayedMedia : MediaLibraryPreferencesUiEvent
+    data class SetWatchHistoryEnabled(val enabled: Boolean) : MediaLibraryPreferencesUiEvent
+    data object ToggleIncludeNetworkWatchHistory : MediaLibraryPreferencesUiEvent
+    data class UpdateNewVideoThreshold(val days: Int) : MediaLibraryPreferencesUiEvent
+
     data object ToggleShowHiddenFiles : MediaLibraryPreferencesUiEvent
     data object ToggleRespectNoMedia : MediaLibraryPreferencesUiEvent
     data object AddScanFolder : MediaLibraryPreferencesUiEvent

@@ -8,23 +8,42 @@ import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import dev.anilbeesetti.nextplayer.core.common.extensions.getPath
 import dev.anilbeesetti.nextplayer.core.common.service.SuspendActivityResultLauncher
 import dev.anilbeesetti.nextplayer.core.common.service.registerForSuspendActivityResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
 
 @Single
-class LocalSystemService(
-    private val context: Context,
-) : SystemService {
+class LocalSystemService(private val context: Context) : SystemService {
     private var pickDocumentTreeLauncher: SuspendActivityResultLauncher<Uri?, Uri?>? = null
 
     override fun initialize(activity: ComponentActivity) {
-        pickDocumentTreeLauncher = activity.registerForSuspendActivityResult(ActivityResultContracts.OpenDocumentTree())
+        val launcher = activity.registerForSuspendActivityResult(
+            ActivityResultContracts.OpenDocumentTree(),
+        )
+        activity.lifecycle.addObserver(
+            object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    pickDocumentTreeLauncher = launcher
+                }
+
+                override fun onResume(owner: LifecycleOwner) {
+                    pickDocumentTreeLauncher = launcher
+                }
+
+                override fun onStop(owner: LifecycleOwner) {
+                    if (pickDocumentTreeLauncher === launcher) pickDocumentTreeLauncher = null
+                }
+            },
+        )
     }
 
-    override suspend fun pickFolder(): Uri? {
-        return pickDocumentTreeLauncher?.launch(null)?.also { uri ->
+    override suspend fun pickFolder(): Uri? = withContext(Dispatchers.Main.immediate) {
+        pickDocumentTreeLauncher?.launch(input = null)?.also { uri ->
             runCatching {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
@@ -34,17 +53,22 @@ class LocalSystemService(
         }
     }
 
-    override suspend fun pickFolderPath(): String? {
-        return pickFolder()?.let { uri -> uri.toTreePath() }
-    }
+    override suspend fun pickFolderPath(): String? = pickFolder()?.let { uri -> uri.toTreePath() }
 
     /** Resolves an OpenDocumentTree tree uri to a file-system path, or null if unsupported. */
     private fun Uri.toTreePath(): String? {
         // Tree URIs from ExternalStorageProvider use the `primary:<relative-path>` document id.
         if (DocumentsContract.isTreeUri(this)) {
             val docId = DocumentsContract.getTreeDocumentId(this)
-            val split = docId.split(":".toRegex(), limit = 2)
-            if (split.size == 2 && split[0].equals("primary", ignoreCase = true)) {
+            val split = docId.split(
+                ":".toRegex(),
+                limit = 2,
+            )
+            if (split.size == 2 && split[0].equals(
+                    "primary",
+                    ignoreCase = true,
+                )
+            ) {
                 val relative = split[1].trim('/')
                 return if (relative.isEmpty()) {
                     Environment.getExternalStorageDirectory().path
@@ -63,9 +87,17 @@ class LocalSystemService(
         pluralsResId: Int,
         quantity: Int,
         vararg formatArgs: Any,
-    ): String = context.resources.getQuantityString(pluralsResId, quantity, *formatArgs)
+    ): String = context.resources.getQuantityString(
+        pluralsResId,
+        quantity,
+        *formatArgs,
+    )
 
     override fun showToast(text: String, duration: Int) {
-        Toast.makeText(context, text, duration).show()
+        Toast.makeText(
+            context,
+            text,
+            duration,
+        ).show()
     }
 }

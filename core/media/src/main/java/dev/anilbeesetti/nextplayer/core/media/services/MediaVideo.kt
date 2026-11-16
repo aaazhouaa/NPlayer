@@ -14,5 +14,6 @@ data class MediaVideo(
     val width: Int,
     val height: Int,
     val dateModified: Long,
+    val dateAdded: Long,
     val isHidden: Boolean = false,
 )

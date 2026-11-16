@@ -366,10 +366,10 @@
         <item quantity="other">Nie można było przenieść %1$d wideo</item>
     </plurals>
     <plurals name="moved_videos_originals_remain">
-        <item quantity="one">Przeniesiono 1 wideo, ale nie udało się usunąć oryginału</item>
-        <item quantity="few">Przeniesiono %1$d wideo, ale nie udało się usunąć oryginałów</item>
-        <item quantity="many">Przeniesiono %1$d wideo, ale nie udało się usunąć oryginałów</item>
-        <item quantity="other">Przeniesiono %1$d wideo, ale nie udało się usunąć oryginałów</item>
+        <item quantity="one">Skopiowano 1 wideo, ale nie udało się usunąć oryginału</item>
+        <item quantity="few">Skopiowano %1$d wideo, ale nie udało się usunąć oryginałów</item>
+        <item quantity="many">Skopiowano %1$d wideo, ale nie udało się usunąć oryginałów</item>
+        <item quantity="other">Skopiowano %1$d wideo, ale nie udało się usunąć oryginałów</item>
     </plurals>
     <string name="cannot_move_to_same_folder">Nie można przenieść do tego samego katalogu</string>
     <string name="folder_duration">Czas trwania katalogu</string>
@@ -521,4 +521,55 @@
     <string name="more">Więcej</string>
     <string name="trash_empty_title">Kosz jest pusty</string>
     <string name="trash_empty_description">Wideo przeniesione do kosza pojawią się w tym miejscu. Możesz je przywrócić lub trwale usunąć.</string>
+    <string name="chapters">Rozdziały</string>
+    <string name="chapter_number">Rozdział %1$d</string>
+    <string name="show_chapters">Pokazuj rozdziały</string>
+    <string name="open_audio">Otwórz lokalny plik audio</string>
+    <string name="error_opening_audio">Nie można otworzyć tego pliku audio</string>
+    <string name="new_label">Nowe</string>
+    <plurals name="new_videos_count">
+        <item quantity="one">%1$d nowe wideo</item>
+        <item quantity="few">%1$d nowe wideo</item>
+        <item quantity="many">%1$d nowych wideo</item>
+        <item quantity="other">%1$d nowych wideo</item>
+    </plurals>
+    <string name="mark_new_media">Oznacz nowo dodane pliki multimedialne jako nowe</string>
+    <plurals name="days_count">
+        <item quantity="one">%1$d dzień</item>
+        <item quantity="few">%1$d dni</item>
+        <item quantity="many">%1$d dni</item>
+        <item quantity="other">%1$d dni</item>
+    </plurals>
+    <string name="tunneled_playback">Odtwarzanie tunelowe</string>
+    <string name="tunneled_playback_description">Jeśli urządzenie i pliki multimedialne obsługują odtwarzanie tunelowane, należy z niego korzystać. Może to poprawić jakość odtwarzania formatów Dolby Vision i HDR10+ na telewizorach z systemem Android TV. Dotyczy nowych sesji odtwarzania.</string>
+    <string name="turn_off_watch_history">Wyłącz historię odtwarzania</string>
+    <string name="turn_on_watch_history">Włącz historię odtwarzania</string>
+    <string name="turn_off_watch_history_confirmation">Wyłączenie historii odtwarzania spowoduje wyczyszczenie historii odtwarzania i wstrzymanie zapisywania wideo, które oglądasz.</string>
+    <string name="turn_on_watch_history_confirmation">Czy chcesz zacząć zapisywać wideo, które oglądasz, w historii odtwarzania?</string>
+    <string name="watch_history_turned_off">Historia odtwarzania jest wyłączona</string>
+    <string name="no_watch_history">Brak historii odtwarzania</string>
+    <string name="watch_history">Historia odtwarzania</string>
+    <string name="watch_history_desc">Prowadź rejestr obejrzanych wideo</string>
+    <string name="network_watch_history">Historia przeglądania sieci</string>
+    <string name="network_watch_history_desc">Dodawaj odtworzone przez sieć wideo do historii odtwarzania.</string>
+    <string name="add_to_home_screen">Dodaj do ekranu głównego</string>
+    <string name="playlist_shortcut_failed">Nie można dodać skrótu do listy odtwarzania. Spróbuj ponownie.</string>
+    <string name="github_sponsors">Sponsorzy z GitHub</string>
+    <string name="reset_subtitle_position">Zresetuj położenie napisów</string>
+    <string name="reset_subtitle_position_desc">Aby przesunąć napisy, przeciągnij je w górę lub w dół podczas odtwarzania</string>
+    <string name="settings_export">Wyeksportuj ustawienia</string>
+    <string name="settings_export_description">Zapisz ustawienia w pliku JSON</string>
+    <string name="settings_import_description">Przywróć ustawienia z pliku JSON</string>
+    <string name="settings_export_confirmation">Eksportuj ustawienia aplikacji i odtwarzacza do pliku JSON.</string>
+    <string name="settings_export_include_credentials">Uwzględniaj połączenia sieciowe i dane uwierzytelniające</string>
+    <string name="settings_export_credentials_warning">Plik JSON nie jest zaszyfrowany. Może zawierać hasła i klucze prywatne SSH. Należy go przechowywać w bezpiecznym miejscu.</string>
+    <string name="settings_import_confirmation">Ustawienia zawarte w tym pliku zastąpią bieżące ustawienia. Brakujące, przestarzałe, nieznane lub nieprawidłowe pozycje zostaną zignorowane. Jeśli plik zawiera informacje o połączeniach sieciowych i danych uwierzytelniających, zostaną one również zaimportowane.</string>
+    <string name="settings_import">Zaimportuj ustawienia</string>
+    <string name="export_action">Eksportuj</string>
+    <string name="import_action">Importuj</string>
+    <string name="settings_export_success">Ustawienia zostały wyeksportowane</string>
+    <string name="settings_export_failed">Nie udało się wyeksportować ustawień</string>
+    <string name="settings_import_success">Ustawienia zostały zaimportowane</string>
+    <string name="settings_import_failed">Nie udało się zakończyć importowania ustawień. Spróbuj ponownie.</string>
+    <string name="settings_import_invalid">Nie udało się odczytać tego pliku lub nie zawiera on obsługiwanych ustawień JSON</string>
 </resources>

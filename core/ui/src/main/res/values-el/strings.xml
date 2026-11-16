@@ -357,8 +357,8 @@
         <item quantity="other">Αδυναμία μετακίνησης %1$d βίντεο</item>
     </plurals>
     <plurals name="moved_videos_originals_remain">
-        <item quantity="one">Μετακινήθηκε 1 βίντεο, αλλά δεν διαγράφηκε το πρωτότυπο</item>
-        <item quantity="other">Μετακινήθηκαν %1$d βίντεο, αλλά δεν διαγράφηκαν τα πρωτότυπα</item>
+        <item quantity="one">Αντιγράφηκε 1 βίντεο, αλλά δεν διαγράφηκε το πρωτότυπο</item>
+        <item quantity="other">Αντιγράφηκαν %1$d βίντεο, αλλά δεν διαγράφηκαν τα πρωτότυπα</item>
     </plurals>
     <string name="cannot_move_to_same_folder">Δεν είναι δυνατή η μετακίνηση στον ίδιο φάκελο</string>
     <string name="home">Αρχική</string>
@@ -505,4 +505,51 @@
     <string name="more">Περισσότερα</string>
     <string name="trash_empty_title">Ο κάδος είναι άδειος</string>
     <string name="trash_empty_description">Τα βίντεο που μετακινείτε στον κάδο απορριμμάτων θα εμφανίζονται εδώ. Μπορείτε να τα επαναφέρετε ή να τα διαγράψετε οριστικά.</string>
+    <string name="chapters">Κεφάλαια</string>
+    <string name="chapter_number">Κεφάλαιο %1$d</string>
+    <string name="show_chapters">Εμφάνιση κεφαλαίων</string>
+    <string name="open_audio">Άνοιγμα τοπικού ήχου</string>
+    <string name="error_opening_audio">Αδυναμία ανοίγματος αυτού του αρχείου ήχου</string>
+    <string name="mark_new_media">Επισήμανση των νέων μέσων που προστέθηκαν ως νέα</string>
+    <plurals name="days_count">
+        <item quantity="one">%1$d ημέρα</item>
+        <item quantity="other">%1$d ημέρες</item>
+    </plurals>
+    <string name="new_label">ΝΕΑ</string>
+    <plurals name="new_videos_count">
+        <item quantity="one">%1$d νέο βίντεο</item>
+        <item quantity="other">%1$d νέα βίντεο</item>
+    </plurals>
+    <string name="tunneled_playback">Αναπαραγωγή τούνελ</string>
+    <string name="tunneled_playback_description">Χρησιμοποιήστε την αναπαραγωγή τούνελ (tunneled playback) όταν υποστηρίζεται από τη συσκευή και το περιεχόμενο πολυμέσων. Μπορεί να βελτιώσει την αναπαραγωγή Dolby Vision και HDR10+ σε τηλεοράσεις Android. Ισχύει για νέες περιόδους λειτουργίας αναπαραγωγής.</string>
+    <string name="turn_off_watch_history">Απενεργοποίηση ιστορικού</string>
+    <string name="turn_on_watch_history">Ενεργοποίηση ιστορικού</string>
+    <string name="turn_off_watch_history_confirmation">Η απενεργοποίηση του ιστορικού παρακολούθησης θα διαγράψει το ιστορικό παρακολούθησης σας και θα σταματήσει την καταγραφή των βίντεο που παρακολουθείτε.</string>
+    <string name="turn_on_watch_history_confirmation">Να ξεκινήσει η καταγραφή των βίντεο που παρακολουθείτε στο ιστορικό προβολής σας;</string>
+    <string name="watch_history_turned_off">Το ιστορικό είναι απενεργοποιημένο</string>
+    <string name="no_watch_history">Δεν υπάρχει ιστορικό</string>
+    <string name="watch_history">Ιστορικό παρακολούθησης</string>
+    <string name="watch_history_desc">Τήρηση αρχείου των βίντεο που παρακολουθείτε</string>
+    <string name="network_watch_history">Ιστορικό δικτύου</string>
+    <string name="network_watch_history_desc">Συμπερίληψη βίντεο που αναπαράγονται μέσω δικτύου στο ιστορικό παρακολούθησης.</string>
+    <string name="playlist_shortcut_failed">Αδυναμία προσθήκης της συντόμευσης της λίστας. Προσπαθήστε ξανά.</string>
+    <string name="add_to_home_screen">Προσθήκη στην αρχική οθόνη</string>
+    <string name="github_sponsors">Δωρητές GitHub</string>
+    <string name="settings_export">Εξαγωγή ρυθμίσεων</string>
+    <string name="settings_export_description">Αποθήκευση ρυθμίσεων σε αρχείο JSON</string>
+    <string name="settings_import">Εισαγωγή ρυθμίσεων</string>
+    <string name="settings_import_description">Εισαγωγή ρυθμίσεων από αρχείο JSON</string>
+    <string name="settings_export_confirmation">Εξαγωγή ρυθμίσεων εφαρμογής και αναπαραγωγέα σε αρχείο JSON.</string>
+    <string name="settings_export_include_credentials">Συμπεριλάβετε συνδέσεις δικτύου και διαπιστευτήρια</string>
+    <string name="settings_export_credentials_warning">Το αρχείο JSON δεν είναι κρυπτογραφημένο. Ενδέχεται να περιέχει κωδικούς πρόσβασης και ιδιωτικά κλειδιά SSH. Φυλάξτε το ασφαλές.</string>
+    <string name="settings_import_confirmation">Οι ρυθμίσεις σε αυτό το αρχείο θα αντικαταστήσουν τις τρέχουσες ρυθμίσεις σας. Τα στοιχεία που λείπουν, τα οποία έχουν παρωχηθεί, τα άγνωστα ή τα μη έγκυρα στοιχεία θα αγνοηθούν. Θα εισαχθούν επίσης συνδέσεις δικτύου και διαπιστευτήρια, εφόσον περιλαμβάνονται.</string>
+    <string name="export_action">Εξαγωγή</string>
+    <string name="import_action">Εισαγωγή</string>
+    <string name="settings_export_success">Οι ρυθμίσεις εξήχθησαν</string>
+    <string name="settings_export_failed">Αδυναμία εξαγωγής ρυθμίσεων</string>
+    <string name="settings_import_success">Οι ρυθμίσεις εισήχθησαν</string>
+    <string name="settings_import_failed">Δεν ήταν δυνατή η ολοκλήρωση της εισαγωγής ρυθμίσεων. Δοκιμάστε ξανά.</string>
+    <string name="settings_import_invalid">Δεν ήταν δυνατή η ανάγνωση αυτού του αρχείου ή δεν περιέχει υποστηριζόμενες ρυθμίσεις JSON</string>
+    <string name="reset_subtitle_position">Επαναφορά θέσης υποτίτλων</string>
+    <string name="reset_subtitle_position_desc">Σύρετε τους υπότιτλους προς τα πάνω ή προς τα κάτω κατά την αναπαραγωγή για να τους μετακινήσετε</string>
 </resources>

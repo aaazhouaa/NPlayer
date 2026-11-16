@@ -24,9 +24,7 @@ import org.koin.core.annotation.Single
  * by the player.
  */
 @Single
-class HiddenVideoScanner(
-    private val context: Context,
-) {
+class HiddenVideoScanner(private val context: Context) {
 
     private data class ScanKey(val root: String?, val respectNoMedia: Boolean)
 
@@ -47,7 +45,10 @@ class HiddenVideoScanner(
     suspend fun scan(root: String?, respectNoMedia: Boolean = false): List<MediaVideo> {
         if (!isFileSystemAccessible()) return emptyList()
 
-        val key = ScanKey(root, respectNoMedia)
+        val key = ScanKey(
+            root,
+            respectNoMedia,
+        )
         cache[key]?.let { return it }
         loadFromDisk(key)?.let { cached ->
             cache[key] = cached
@@ -70,7 +71,10 @@ class HiddenVideoScanner(
             )
         }
         cache[key] = result
-        saveToDisk(key, result)
+        saveToDisk(
+            key,
+            result,
+        )
         return result
     }
 
@@ -82,7 +86,10 @@ class HiddenVideoScanner(
 
     private fun diskFile(key: ScanKey): File {
         val rootHash = key.root?.hashCode() ?: 0
-        return File(context.filesDir, "hidden_scan_${rootHash}_${key.respectNoMedia}.txt")
+        return File(
+            context.filesDir,
+            "hidden_scan_${rootHash}_${key.respectNoMedia}.txt",
+        )
     }
 
     private fun saveToDisk(key: ScanKey, videos: List<MediaVideo>) {
@@ -124,6 +131,7 @@ class HiddenVideoScanner(
         width = 0,
         height = 0,
         dateModified = lastModified(),
+        dateAdded = lastModified(),
         isHidden = true,
     )
 
@@ -139,7 +147,12 @@ class HiddenVideoScanner(
 
         val results = mutableListOf<MediaVideo>()
         val children = directory.listFiles() ?: return emptyList()
-        val hasNoMediaMarker = children.any { it.name.equals(".nomedia", ignoreCase = true) }
+        val hasNoMediaMarker = children.any {
+            it.name.equals(
+                ".nomedia",
+                ignoreCase = true,
+            )
+        }
         val effectiveNoMedia = ancestorHasNoMedia || hasNoMediaMarker
 
         // When respecting .nomedia, this directory is excluded together with its whole subtree.
@@ -150,8 +163,17 @@ class HiddenVideoScanner(
                 // A hidden or .nomedia directory hides its whole subtree, so propagate the hidden
                 // state downward while descending into it. A non-hidden child under a hidden parent
                 // must also inherit the parent's hidden state (multi-level hidden folders).
-                val childHidden = isDirectoryHidden || child.name.startsWith(".") || effectiveNoMedia
-                results += scanDirectory(child, mediaStorePaths, seen, respectNoMedia, childHidden, effectiveNoMedia)
+                val childHidden =
+                    isDirectoryHidden || child.name.startsWith(".") || effectiveNoMedia
+                results +=
+                    scanDirectory(
+                        child,
+                        mediaStorePaths,
+                        seen,
+                        respectNoMedia,
+                        childHidden,
+                        effectiveNoMedia,
+                    )
                 continue
             }
 
@@ -164,7 +186,11 @@ class HiddenVideoScanner(
 
             // MediaStore doesn't index files hidden by name or by .nomedia, but if it somehow
             // already has this path, the row it returns is the source of truth — skip the duplicate.
-            if (mediaStorePaths.contains(child.absolutePath) || mediaStorePaths.contains(canonical)) continue
+            if (mediaStorePaths.contains(child.absolutePath) ||
+                mediaStorePaths.contains(canonical)
+            ) {
+                continue
+            }
 
             results += MediaVideo(
                 id = canonical.hashCode().toLong(),
@@ -178,6 +204,7 @@ class HiddenVideoScanner(
                 width = 0,
                 height = 0,
                 dateModified = child.lastModified(),
+                dateAdded = child.lastModified(),
                 isHidden = true,
             )
         }
@@ -193,7 +220,13 @@ class HiddenVideoScanner(
     private fun File.hasNoMediaAncestor(): Boolean {
         var current: File? = this
         while (current != null) {
-            if (File(current, ".nomedia").exists()) return true
+            if (File(
+                    current,
+                    ".nomedia",
+                ).exists()
+            ) {
+                return true
+            }
             val parent = current.parentFile ?: return false
             if (parent == current) return false
             current = parent
@@ -240,14 +273,31 @@ class HiddenVideoScanner(
     private fun isExternalStorageManager(): Boolean = Environment.isExternalStorageManager()
 
     private fun File.isSupportedVideo(): Boolean {
-        val extension = name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+        val extension = name.substringAfterLast(
+            '.',
+            missingDelimiterValue = "",
+        ).lowercase()
         return extension in SUPPORTED_EXTENSIONS
     }
 
     companion object {
         private val SUPPORTED_EXTENSIONS = setOf(
-            "3gp", "3g2", "avi", "flv", "m2ts", "m4v", "mkv", "mov", "mp2", "mp4",
-            "mpeg", "mpg", "mts", "ts", "webm", "wmv",
+            "3gp",
+            "3g2",
+            "avi",
+            "flv",
+            "m2ts",
+            "m4v",
+            "mkv",
+            "mov",
+            "mp2",
+            "mp4",
+            "mpeg",
+            "mpg",
+            "mts",
+            "ts",
+            "webm",
+            "wmv",
         )
     }
 }

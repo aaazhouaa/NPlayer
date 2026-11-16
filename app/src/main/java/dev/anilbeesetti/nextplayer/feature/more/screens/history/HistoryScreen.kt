@@ -8,9 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -19,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,16 +35,16 @@ import dev.anilbeesetti.nextplayer.core.ui.R
 import dev.anilbeesetti.nextplayer.core.ui.base.DataState
 import dev.anilbeesetti.nextplayer.core.ui.components.NextDialog
 import dev.anilbeesetti.nextplayer.core.ui.components.NextTopAppBar
+import dev.anilbeesetti.nextplayer.core.ui.components.WatchHistoryConfirmationDialog
 import dev.anilbeesetti.nextplayer.core.ui.components.tvFocusRing
 import dev.anilbeesetti.nextplayer.core.ui.designsystem.NextIcons
 import dev.anilbeesetti.nextplayer.core.ui.extensions.copy
+import dev.anilbeesetti.nextplayer.feature.more.components.HistoryEmptyState
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.CenterCircularProgressBar
 import dev.anilbeesetti.nextplayer.feature.videopicker.composables.VideoListItem
 
 @Composable
-fun HistoryScreen(
-    viewModel: HistoryViewModel,
-) {
+fun HistoryScreen(viewModel: HistoryViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     HistoryScreenContent(
@@ -48,11 +54,10 @@ fun HistoryScreen(
 }
 
 @Composable
-internal fun HistoryScreenContent(
-    state: HistoryUiState,
-    onAction: (HistoryAction) -> Unit,
-) {
-    var showClearConfirmation by remember { mutableStateOf(false) }
+internal fun HistoryScreenContent(state: HistoryUiState, onAction: (HistoryAction) -> Unit) {
+    var showClearConfirmation by rememberSaveable { mutableStateOf(value = false) }
+    var enableHistoryConfirmation by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
+    var menuExpanded by remember { mutableStateOf(value = false) }
 
     Scaffold(
         topBar = {
@@ -70,12 +75,46 @@ internal fun HistoryScreenContent(
                     }
                 },
                 actions = {
-                    TextButton(
-                        enabled = state.history.result.orEmpty().isNotEmpty(),
-                        onClick = { showClearConfirmation = true },
-                        modifier = Modifier.tvFocusRing(),
-                    ) {
-                        Text(stringResource(R.string.clear_all))
+                    Box {
+                        IconButton(
+                            onClick = { menuExpanded = true },
+                            modifier = Modifier.tvFocusRing(),
+                        ) {
+                            Icon(
+                                imageVector = NextIcons.MoreVert,
+                                contentDescription = stringResource(R.string.menu),
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = stringResource(
+                                            id = if (state.preferences.isHistoryPaused) {
+                                                R.string.turn_on_watch_history
+                                            } else {
+                                                R.string.turn_off_watch_history
+                                            },
+                                        ),
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    enableHistoryConfirmation = state.preferences.isHistoryPaused
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(R.string.clear_history)) },
+                                enabled = state.history.result.orEmpty().isNotEmpty(),
+                                onClick = {
+                                    menuExpanded = false
+                                    showClearConfirmation = true
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -86,55 +125,94 @@ internal fun HistoryScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(scaffoldPadding.copy(bottom = 0.dp))
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .clip(
+                    shape = RoundedCornerShape(
+                        topStart = 24.dp,
+                        topEnd = 24.dp,
+                    ),
+                )
                 .background(MaterialTheme.colorScheme.background),
         ) {
-            when (val history = state.history) {
-                is DataState.Loading -> CenterCircularProgressBar()
-                is DataState.Error -> Text(
-                    text = history.value.message.orEmpty(),
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.error,
+            if (state.preferences.isHistoryPaused) {
+                HistoryEmptyState(
+                    isHistoryOff = true,
+                    modifier = Modifier.fillMaxSize().verticalScroll(state = rememberScrollState()),
                 )
-                is DataState.Success -> LazyColumn(
-                    contentPadding = PaddingValues(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    itemsIndexed(history.value, key = { _, video -> video.uriString }) { index, video ->
-                        VideoListItem(
-                            video = video,
-                            isRecentlyPlayedVideo = false,
-                            preferences = state.preferences,
-                            isFirstItem = index == 0,
-                            isLastItem = index == history.value.lastIndex,
-                            onClick = { onAction(HistoryAction.PlayVideo(video.uriString)) },
+            } else {
+                when (val history = state.history) {
+                    is DataState.Loading -> CenterCircularProgressBar()
+
+                    is DataState.Error -> Text(
+                        text = history.value.message.orEmpty(),
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+
+                    is DataState.Success -> if (history.value.isEmpty()) {
+                        HistoryEmptyState(
+                            isHistoryOff = false,
+                            modifier = Modifier.fillMaxSize().verticalScroll(
+                                state = rememberScrollState(),
+                            ),
                         )
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            itemsIndexed(
+                                history.value,
+                                key = { _, video ->
+                                    video.uriString
+                                },
+                            ) { index, video ->
+                                VideoListItem(
+                                    video = video,
+                                    isRecentlyPlayedVideo = false,
+                                    preferences = state.preferences,
+                                    isFirstItem = index == 0,
+                                    isLastItem = index == history.value.lastIndex,
+                                    onClick = {
+                                        onAction(HistoryAction.PlayVideo(video.uriString))
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
+    enableHistoryConfirmation?.let { enableHistory ->
+        WatchHistoryConfirmationDialog(
+            enableHistory = enableHistory,
+            onConfirm = {
+                onAction(HistoryAction.SetHistoryEnabled(enabled = enableHistory))
+                enableHistoryConfirmation = null
+            },
+            onDismiss = { enableHistoryConfirmation = null },
+        )
+    }
+
     if (showClearConfirmation) {
         NextDialog(
             onDismissRequest = { showClearConfirmation = false },
-            title = { Text(stringResource(R.string.clear_history)) },
+            title = { Text(text = stringResource(R.string.clear_history)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onAction(HistoryAction.ClearHistory)
                         showClearConfirmation = false
                     },
-                ) {
-                    Text(stringResource(R.string.clear_all))
-                }
+                ) { Text(text = stringResource(R.string.clear_all)) }
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirmation = false }) {
-                    Text(stringResource(R.string.cancel))
+                    Text(text = stringResource(R.string.cancel))
                 }
             },
-            content = { Text(stringResource(R.string.clear_history_confirmation)) },
+            content = { Text(text = stringResource(R.string.clear_history_confirmation)) },
         )
     }
 }

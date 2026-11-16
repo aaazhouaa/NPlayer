@@ -269,7 +269,7 @@
     <string name="no_results_found">Žádné výseldky nenalezeny</string>
     <string name="search_results">Výsledky hledání</string>
     <string name="now_playing">Právě hraje</string>
-    <string name="no_videos_in_queue">Žádné videa v frontě</string>
+    <string name="no_videos_in_queue">Žádné videa ve frontě</string>
     <string name="remove">Odebrat</string>
     <string name="unknown">Neznámé</string>
     <string name="search">Hledat</string>
@@ -357,10 +357,10 @@
         <item quantity="other">%1$d videí nešlo přesunout</item>
     </plurals>
     <plurals name="moved_videos_originals_remain">
-        <item quantity="one">Jedno video přesunuto, ale původní nešlo odebrat</item>
-        <item quantity="few">%1$d videa přesunuty, ale původní nešly odebrat</item>
-        <item quantity="many">%1$d videí přesunuty, ale původní nešly odebrat</item>
-        <item quantity="other">%1$d videí přesunuty, ale původní nešly odebrat</item>
+        <item quantity="one">Jedno video zkopírováno, ale původní nešlo odebrat</item>
+        <item quantity="few">%1$d videa zkopírovány, ale původní nešly odebrat</item>
+        <item quantity="many">%1$d videí zkopírovány, ale původní nešly odebrat</item>
+        <item quantity="other">%1$d videí zkopírovány, ale původní nešly odebrat</item>
     </plurals>
     <string name="cannot_move_to_same_folder">Nelze přesunout do stejné složky</string>
     <string name="folder_duration">Délka složky</string>
@@ -422,7 +422,7 @@
         <item quantity="other">%d videí byly přidány do playlistu.</item>
     </plurals>
     <string name="playlist_selection_read_failed">Nešlo číst vybrané videa. Zkuste to znovu.</string>
-    <string name="playlist_selection_empty">Žádné lokální videa nebyly nalezeny ve výběru.</string>
+    <string name="playlist_selection_empty">Žádné místní videa nebyly nalezeny ve výběru.</string>
     <string name="playlist_update_failed">Nešlo aktualizovat playlist. Zkuste to znovu.</string>
     <string name="playlist_delete_failed">Nešlo odstranit playlist. Zkuste to znovu.</string>
     <string name="already_in_playlist">Vybrané videa jsou už v tomto playlistu.</string>
@@ -446,10 +446,10 @@
     <string name="remove_video">Odebrat video</string>
     <string name="play_all">Přehrát vše</string>
     <string name="playlist_actions">Možnosti playlistu</string>
-    <string name="local_playlist">Lokální</string>
+    <string name="local_playlist">Místní</string>
     <string name="delete_playlist_confirmation">Odstranit \"%1$s\" a jeho uložené pořadí?</string>
     <string name="delete_playlist">Odstranit playlist</string>
-    <string name="no_playlists_description">Vytvořte lokální playlist nebo přidejte M3U zdroj pro začínání sledování.</string>
+    <string name="no_playlists_description">Vytvořte místní playlist nebo přidejte M3U zdroj pro začínání sledování.</string>
     <string name="no_playlists_title">Zatím žádné playlisty</string>
     <string name="saving_playlist">Ukládání playlistu…</string>
     <string name="name_required">Zadejte název playlistu.</string>
@@ -471,7 +471,7 @@
     <string name="audio_decoder_mode_not_supported">%1$s dekodér zvuku není podporován</string>
     <string name="no_supported_decoder">Žádný podporovaný dekodér není dostupný pro tento soubor.</string>
     <string name="choose_playlist_type">Vytvořit playlist</string>
-    <string name="create_local_playlist">Vytvořit lokální playlist</string>
+    <string name="create_local_playlist">Vytvořit místní playlist</string>
     <string name="add_m3u_url_playlist">Přidat M3U playlist ze URL</string>
     <string name="add_m3u_file_playlist">Přidat M3U playlist ze souboru</string>
     <string name="decoder_mode_auto">Automatický</string>
@@ -513,4 +513,55 @@
     <string name="vault_biometric_description">Použít váš otisk prstu nebo tvář pro odemykání. Váš PIN pro sejf bude stále dostupný.</string>
     <string name="system_volume_panel_desc">Zobrazit systémový panel hlasitosti při nastavování hlasitosti se sluchátkáma</string>
     <string name="system_volume_panel">Systémový panel hlasitosti</string>
+    <string name="open_audio">Otevřít místní zvukový soubor</string>
+    <string name="error_opening_audio">Nelze otevřít tento zvukový soubor</string>
+    <string name="chapters">Kapitoly</string>
+    <string name="chapter_number">Kapitola %1$d</string>
+    <string name="show_chapters">Zobrazit kapitoly</string>
+    <plurals name="days_count">
+        <item quantity="one">%1$d den</item>
+        <item quantity="few">%1$d dny</item>
+        <item quantity="many">%1$d dnů</item>
+        <item quantity="other">%1$d dnů</item>
+    </plurals>
+    <string name="mark_new_media">Označit nově-přidané videa jako nové</string>
+    <plurals name="new_videos_count">
+        <item quantity="one">Jedno nové video</item>
+        <item quantity="few">%1$d nové videa</item>
+        <item quantity="many">%1$d nových videích</item>
+        <item quantity="other">%1$d nových videích</item>
+    </plurals>
+    <string name="new_label">NOVÉ</string>
+    <string name="tunneled_playback">Tunelované přehrávání</string>
+    <string name="tunneled_playback_description">Použít tunelované přehrávání podle podpory zařízení a videa. Možná zlepší přehrávání Dolby Vision a HDR10+ obsahu na Android televizích. Použije se pro nové přehrávací relace.</string>
+    <string name="network_watch_history_desc">Zaznamenat i videa přehrané přes síť ve historii sledování.</string>
+    <string name="network_watch_history">Síťová historie sledování</string>
+    <string name="watch_history">Historie sledování</string>
+    <string name="no_watch_history">Žádná historie sledování</string>
+    <string name="watch_history_turned_off">Historie sledování je vypnuta</string>
+    <string name="turn_on_watch_history_confirmation">Začít zaznamenávat zhlédnuté videa ve historii sledování?</string>
+    <string name="turn_off_watch_history_confirmation">Vypnutím historie sledování vymaže historii sledování a přestane zaznamenávat zhlédnuté videa.</string>
+    <string name="turn_on_watch_history">Zapnout historii sledování</string>
+    <string name="turn_off_watch_history">Vypnout historii sledování</string>
+    <string name="watch_history_desc">Zaznamenat videa, které sledujete</string>
+    <string name="add_to_home_screen">Přidat na domovskou obrazovku</string>
+    <string name="playlist_shortcut_failed">Nešlo přidat zástupce pro playlist. Zkuste to znovu.</string>
+    <string name="github_sponsors">GitHub Sponsors</string>
+    <string name="settings_export">Exportovat nastavení</string>
+    <string name="settings_export_description">Uložit nastavení do JSON souboru</string>
+    <string name="settings_import">Importovat nastavení</string>
+    <string name="settings_import_description">Obnovit nastavení z JSON souboru</string>
+    <string name="settings_export_confirmation">Exportovat nastavení aplikace a přehrávače do JSON souboru.</string>
+    <string name="settings_export_include_credentials">Zahrnout uložené síťové připojení a údaje</string>
+    <string name="settings_export_credentials_warning">JSON soubor není zašifrován. Možná bude obsahovat hesla a soukromé klíče SSH. Mějte ho v bezpečí.</string>
+    <string name="settings_import_confirmation">Nastavení v tomto souboru nahradí vaše aktuální nastavení. Chybějící, zastaralé, neznámé nebo neplatné nastavení budou ignorovány. Jestli byly zahrnuty síťové připojení a údaje, budou také importovány.</string>
+    <string name="export_action">Exportovat</string>
+    <string name="import_action">Importovat</string>
+    <string name="settings_export_success">Nastavení exportovány</string>
+    <string name="settings_export_failed">Nešlo exportovat nastavení</string>
+    <string name="settings_import_success">Nastavení importovány</string>
+    <string name="settings_import_failed">Nešlo dokončit importování nastavení. Zkuste to znovu.</string>
+    <string name="settings_import_invalid">Nešlo přečíst tento soubor nebo neobsahuje žádné podporované JSON nastavení</string>
+    <string name="reset_subtitle_position">Resetovat umístění titulek</string>
+    <string name="reset_subtitle_position_desc">Posuňte titulky nahoru nebo dolů při přehráváním pro jejich přesun</string>
 </resources>
