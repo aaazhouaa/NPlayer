@@ -30,6 +30,7 @@
         android:name=".NextPlayerApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="false"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
@@ -37,7 +38,7 @@
         android:banner="@drawable/tv_banner"
         android:supportsRtl="true"
         android:theme="@style/Theme.NextPlayer.Splash"
-        tools:targetApi="s">
+        tools:targetApi="tiramisu">
         <activity
             android:name=".MainActivity"
             android:banner="@drawable/tv_banner"
