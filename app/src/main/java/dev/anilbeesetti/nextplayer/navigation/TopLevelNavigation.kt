@@ -247,20 +247,14 @@ fun TopLevelNavState.isNavigationBetweenTopLevelDestinations(
         contains(targetState.entries.lastOrNull()?.contentKey)
 }
 
-// Timings measured from the system activity transition (ColorOS 16 Settings), which apps can't
-// borrow directly for in-activity navigation.
-private const val PUSH_DURATION_MILLIS = 320
-private const val POP_DURATION_MILLIS = 360
-private val PushEasing = CubicBezierEasing(
+// Duration measured from the system activity transition (ColorOS 16 Settings), which apps can't
+// borrow directly for in-activity navigation. Pop matches push deliberately so back navigation
+// doesn't feel slower than forward navigation.
+private const val NAVIGATION_DURATION_MILLIS = 320
+private val NavigationEasing = CubicBezierEasing(
     0.3f,
     0.7f,
     0.5f,
-    1f,
-)
-private val PopEasing = CubicBezierEasing(
-    0.3f,
-    0.3f,
-    0.3f,
     1f,
 )
 private const val PARALLAX_FRACTION = 0.3f
@@ -302,18 +296,13 @@ internal fun TopLevelNavState.navigationTransition(
     // the finger.
     val animationSpec = when {
         isPredictive -> tween<IntOffset>(
-            durationMillis = POP_DURATION_MILLIS,
+            durationMillis = NAVIGATION_DURATION_MILLIS,
             easing = LinearEasing,
         )
 
-        isPop -> tween(
-            durationMillis = POP_DURATION_MILLIS,
-            easing = PopEasing,
-        )
-
         else -> tween(
-            durationMillis = PUSH_DURATION_MILLIS,
-            easing = PushEasing,
+            durationMillis = NAVIGATION_DURATION_MILLIS,
+            easing = NavigationEasing,
         )
     }
     val parallax = if (isPredictive) PREDICTIVE_PARALLAX_FRACTION else PARALLAX_FRACTION
@@ -342,7 +331,7 @@ internal fun TopLevelNavState.navigationTransitionModifier(entry: NavEntry<NavKe
     val scrimAlpha = visibility.animateFloat(
         transitionSpec = {
             tween(
-                durationMillis = if (isPop) POP_DURATION_MILLIS else PUSH_DURATION_MILLIS,
+                durationMillis = NAVIGATION_DURATION_MILLIS,
                 easing = LinearEasing,
             )
         },
