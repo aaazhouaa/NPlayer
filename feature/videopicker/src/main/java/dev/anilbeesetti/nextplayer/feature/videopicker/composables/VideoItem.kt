@@ -112,12 +112,6 @@ fun VideoListItem(
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
 ) {
-    val path = video.path.substringBeforeLast(delimiter = "/")
-    val showPath = preferences.showPathField && path.isNotBlank()
-    val showSize =
-        preferences.showSizeField && video.size > 0 && video.formattedFileSize.isNotBlank()
-    val showResolution = preferences.showResolutionField && video.height > 0
-
     NextSegmentedListItem(
         modifier = modifier,
         selected = selected,
@@ -165,37 +159,11 @@ fun VideoListItem(
                 overflow = TextOverflow.Ellipsis,
             )
         },
-        supportingContent = if (showPath || showSize || showResolution) {
-            {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    if (showPath) {
-                        Text(
-                            text = path,
-                            maxLines = 2,
-                            style = MaterialTheme.typography.bodySmall,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    if (showSize || showResolution) {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            verticalArrangement = Arrangement.spacedBy(5.dp),
-                        ) {
-                            if (showSize) {
-                                InfoChip(text = video.formattedFileSize)
-                            }
-                            if (showResolution) {
-                                InfoChip(text = "${video.height}p")
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            null
+        supportingContent = {
+            VideoSupportingFields(
+                video = video,
+                preferences = preferences,
+            )
         },
     )
 }
@@ -262,7 +230,56 @@ fun VideoGridItem(
                 )
             }
         },
+        supportingContent = {
+            VideoSupportingFields(
+                video = video,
+                preferences = preferences,
+            )
+        },
     )
+}
+
+/** Path, size and resolution fields rendered beneath a video's title in both layouts. */
+@Composable
+private fun VideoSupportingFields(
+    video: Video,
+    preferences: ApplicationPreferences,
+    modifier: Modifier = Modifier,
+) {
+    val path = video.path.substringBeforeLast(delimiter = "/")
+    val showPath = preferences.showPathField && path.isNotBlank()
+    val showSize =
+        preferences.showSizeField && video.size > 0 && video.formattedFileSize.isNotBlank()
+    val showResolution = preferences.showResolutionField && video.height > 0
+    if (!showPath && !showSize && !showResolution) return
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (showPath) {
+            Text(
+                text = path,
+                maxLines = 2,
+                style = MaterialTheme.typography.bodySmall,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (showSize || showResolution) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                if (showSize) {
+                    InfoChip(text = video.formattedFileSize)
+                }
+                if (showResolution) {
+                    InfoChip(text = "${video.height}p")
+                }
+            }
+        }
+    }
 }
 
 /** True if the video is local. Remote videos avoid full download and use a placeholder. */

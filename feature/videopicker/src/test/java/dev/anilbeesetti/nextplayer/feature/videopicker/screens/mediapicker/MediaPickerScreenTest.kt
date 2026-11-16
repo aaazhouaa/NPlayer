@@ -201,6 +201,43 @@ class MediaPickerScreenTest {
     }
 
     @Test
+    fun gridLayoutRendersFieldChipsWhenEnabled() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VIDEO)
+        val video = Video.sample.copy(
+            nameWithExtension = "Clip.mp4",
+            uriString = "file:///storage/emulated/0/.Movies/Clip.mp4",
+        )
+        composeRule.setContent {
+            NextPlayerTheme {
+                MediaPickerScreenContent(
+                    state = MediaPickerUiState(
+                        folderName = ".Movies",
+                        mediaDataState = DataState.Success(
+                            value = MediaHolder(
+                                videos = listOf(element = video),
+                                folders = emptyList(),
+                            ),
+                        ),
+                        preferences = ApplicationPreferences(
+                            mediaViewMode = MediaViewMode.VIDEOS,
+                            mediaLayoutMode = MediaLayoutMode.GRID,
+                            showPathField = true,
+                            showSizeField = true,
+                            showResolutionField = true,
+                        ),
+                    ),
+                )
+            }
+        }
+
+        // Grid items share the supporting fields with list items.
+        composeRule.onNodeWithText(text = "1080p").assertIsDisplayed()
+        composeRule.onNodeWithText(text = "320KB").assertIsDisplayed()
+        composeRule.onNodeWithText(text = "/storage/emulated/0/Download").assertIsDisplayed()
+    }
+
+    @Test
     fun loadingWithoutStoragePermissionShowsPermissionMessage() {
         val permissionMessage = ApplicationProvider.getApplicationContext<android.content.Context>()
             .getString(R.string.permission_not_granted)
