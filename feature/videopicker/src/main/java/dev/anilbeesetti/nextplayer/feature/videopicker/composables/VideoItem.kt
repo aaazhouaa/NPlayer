@@ -211,6 +211,7 @@ fun VideoGridItem(
                 ThumbnailView(
                     video = video,
                     preferences = preferences,
+                    showResolutionOverlay = true,
                 )
                 Text(
                     text = if (preferences.showExtensionField) {
@@ -250,7 +251,10 @@ private fun VideoSupportingFields(
     val showPath = preferences.showPathField && path.isNotBlank()
     val showSize =
         preferences.showSizeField && video.size > 0 && video.formattedFileSize.isNotBlank()
-    val showResolution = preferences.showResolutionField && video.height > 0
+    val showResolution = preferences.showResolutionField &&
+        video.height > 0 &&
+        // Grid mode shows the resolution on the thumbnail instead.
+        preferences.mediaLayoutMode == MediaLayoutMode.LIST
     if (!showPath && !showSize && !showResolution) return
 
     Column(
@@ -300,6 +304,7 @@ private fun ThumbnailView(
     modifier: Modifier = Modifier,
     video: Video,
     preferences: ApplicationPreferences,
+    showResolutionOverlay: Boolean = false,
 ) {
     val context = LocalContext.current
     val isLocalVideo = remember(video.uriString) { video.isLocalUri() }
@@ -354,16 +359,33 @@ private fun ThumbnailView(
             )
         }
 
-        if (isNew) {
-            InfoChip(
-                text = stringResource(R.string.new_label),
+        val showResolutionChip =
+            showResolutionOverlay && preferences.showResolutionField && video.height > 0
+
+        if (isNew || showResolutionChip) {
+            Column(
                 modifier = Modifier
                     .padding(5.dp)
                     .align(Alignment.TopStart),
-                backgroundColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = MaterialTheme.shapes.extraSmall,
-            )
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (isNew) {
+                    InfoChip(
+                        text = stringResource(R.string.new_label),
+                        backgroundColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = MaterialTheme.shapes.extraSmall,
+                    )
+                }
+                if (showResolutionChip) {
+                    InfoChip(
+                        text = "${video.height}p",
+                        backgroundColor = Color.Black.copy(alpha = 0.6f),
+                        contentColor = Color.White,
+                        shape = MaterialTheme.shapes.extraSmall,
+                    )
+                }
+            }
         }
 
         if (preferences.showPlayedProgress && video.playedPercentage != null) {
