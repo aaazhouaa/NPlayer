@@ -102,57 +102,48 @@ class VideoThumbnailDecoder(
 
         // Cache miss OR cache insufficient: decode fresh thumbnail
         val rawBitmap = MediaMetadataRetriever().use { nativeRetriever ->
-            MediaThumbnailRetriever().use { ffmpegRetriever ->
-                nativeRetriever.setDataSource(source = source)
-                val fallbackRetriever = try {
-                    ffmpegRetriever.setDataSource(source = source)
-                    ffmpegRetriever
-                } catch (_: IllegalArgumentException) {
-                    // FFmpeg can fail to reopen a trashed MediaStore descriptor even
-                    // when the native retriever can read it. Keep native decoding available.
-                    null
+            nativeRetriever.setDataSource(source = source)
+
+            // FFmpeg re-opens and re-probes the whole file (avformat_find_stream_info reads
+            // megabytes), so it is only started once the native retriever fails to produce
+            // a bitmap.
+            var ffmpegRetriever: MediaThumbnailRetriever? = null
+            var ffmpegOpenAttempted = false
+            val fallbackRetriever: () -> MediaThumbnailRetriever? = {
+                if (!ffmpegOpenAttempted) {
+                    ffmpegOpenAttempted = true
+                    ffmpegRetriever = try {
+                        MediaThumbnailRetriever().apply { setDataSource(source) }
+                    } catch (_: IllegalArgumentException) {
+                        // FFmpeg can fail to reopen a trashed MediaStore descriptor even
+                        // when the native retriever can read it. Keep native decoding available.
+                        null
+                    }
                 }
+                ffmpegRetriever
+            }
 
-                // First, try to get embedded picture (album art/metadata thumbnail)
-                val embeddedPicture =
-                    nativeRetriever.embeddedPicture ?: fallbackRetriever?.getEmbeddedPicture()
-                val embeddedPictureBitmap = embeddedPicture?.let { pictureBytes ->
-                    BitmapFactory.decodeByteArray(
-                        pictureBytes,
-                        0,
-                        pictureBytes.size,
-                    )
-                }
-
-                if (embeddedPictureBitmap != null) return@use embeddedPictureBitmap
-
+            try {
                 val videoDuration = nativeRetriever
                     .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull() ?: 0L
 
-                return@use when (strategy) {
-                    is ThumbnailStrategy.FirstFrame -> {
-                        nativeRetriever.getFrameAtTime(0)
-                            ?: fallbackRetriever?.getFrameAtTime(timeUs = 0)
+                nativeRetriever.embeddedPicture?.decodeToBitmap()
+                    ?: frameWithFallback(
+                        videoDuration = videoDuration,
+                        getFrame = { timeUs -> nativeRetriever.getFrameAtTime(timeUs) },
+                        fallback = { timeUs -> fallbackRetriever()?.getFrameAtTime(timeUs) },
+                    )
+                    ?: fallbackRetriever()?.let { ffmpeg ->
+                        ffmpeg.getEmbeddedPicture()?.decodeToBitmap()
+                            ?: frameWithFallback(
+                                videoDuration = videoDuration,
+                                getFrame = { timeUs -> ffmpeg.getFrameAtTime(timeUs) },
+                            )
                     }
-
-                    is ThumbnailStrategy.FrameAtPercentage -> {
-                        val timeUs = (videoDuration * strategy.percentage * 1000).toLong()
-                        nativeRetriever.getFrameAtTime(timeUs)
-                            ?: fallbackRetriever?.getFrameAtTime(timeUs = timeUs)
-                    }
-
-                    is ThumbnailStrategy.Hybrid -> {
-                        val firstFrame = nativeRetriever.getFrameAtTime(0)
-                        if (firstFrame == null || isSolidColor(bitmap = firstFrame)) {
-                            val timeUs = (videoDuration * strategy.percentage * 1000).toLong()
-                            nativeRetriever.getFrameAtTime(timeUs)
-                                ?: fallbackRetriever?.getFrameAtTime(timeUs = timeUs)
-                        } else {
-                            firstFrame
-                        }
-                    }
-                } ?: throw IllegalStateException("Failed to get video thumbnail.")
+                    ?: throw IllegalStateException("Failed to get video thumbnail.")
+            } finally {
+                ffmpegRetriever?.close()
             }
         }
 
@@ -183,6 +174,43 @@ class VideoThumbnailDecoder(
             ) < 1.0,
         )
     }
+
+    /**
+     * Extracts a frame according to [strategy]. [fallback] is consulted with the same
+     * timestamp only when [getFrame] returns null, so a slower retriever can be started
+     * lazily instead of up front.
+     */
+    private fun frameWithFallback(
+        videoDuration: Long,
+        getFrame: (Long) -> Bitmap?,
+        fallback: ((Long) -> Bitmap?)? = null,
+    ): Bitmap? = when (strategy) {
+        is ThumbnailStrategy.FirstFrame ->
+            getFrame(0L) ?: fallback?.invoke(0L)
+
+        is ThumbnailStrategy.FrameAtPercentage -> {
+            val timeUs = videoDuration.percentageTimeUs(strategy.percentage)
+            getFrame(timeUs) ?: fallback?.invoke(timeUs)
+        }
+
+        is ThumbnailStrategy.Hybrid -> {
+            val firstFrame = getFrame(0L)
+            if (firstFrame == null || isSolidColor(bitmap = firstFrame)) {
+                val timeUs = videoDuration.percentageTimeUs(strategy.percentage)
+                getFrame(timeUs) ?: fallback?.invoke(timeUs)
+            } else {
+                firstFrame
+            }
+        }
+    }
+
+    private fun Long.percentageTimeUs(percentage: Float): Long = (this * percentage * 1000).toLong()
+
+    private fun ByteArray.decodeToBitmap(): Bitmap? = BitmapFactory.decodeByteArray(
+        this,
+        0,
+        size,
+    )
 
     private fun MediaMetadataRetriever.setDataSource(source: ImageSource) {
         val metadata = source.metadata
