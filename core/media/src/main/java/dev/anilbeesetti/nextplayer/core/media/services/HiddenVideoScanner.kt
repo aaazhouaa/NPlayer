@@ -41,6 +41,11 @@ import org.koin.core.annotation.Single
  * Duration and resolution are parsed in a background pass after the list is returned, so a slow
  * (or very large) hidden library never delays the picker. [observeCacheUpdates] emits once that
  * pass completes so lists can re-query.
+ *
+ * Files added to a hidden folder never reach MediaStore, so no change notification can refresh
+ * the caches. Scans are therefore re-walked once the cached snapshot is older than
+ * [SCAN_FRESHNESS_MILLIS], and every file's first discovery time is recorded so newly added
+ * files are reported with the same "added" semantics as MediaStore rows.
  */
 @Single
 class HiddenVideoScanner(
@@ -50,8 +55,23 @@ class HiddenVideoScanner(
 
     private data class ScanKey(val root: String?, val respectNoMedia: Boolean)
 
+    private class CachedScan(val videos: List<MediaVideo>, val scannedAtMillis: Long) {
+        fun isFresh(nowMillis: Long): Boolean = nowMillis - scannedAtMillis < SCAN_FRESHNESS_MILLIS
+    }
+
     /** In-memory scan results keyed by root + .nomedia policy, avoiding repeated directory walks. */
-    private val cache = ConcurrentHashMap<ScanKey, List<MediaVideo>>()
+    private val cache = ConcurrentHashMap<ScanKey, CachedScan>()
+
+    /**
+     * Epoch seconds at which each hidden file was first seen by the scanner, keyed by path.
+     *
+     * A file copied into a hidden folder keeps its original mtime, which would never read as
+     * "recently added". Discovery time is what MediaStore reports as DATE_ADDED, so it is what
+     * hidden files report too.
+     */
+    private val firstSeenByPath = ConcurrentHashMap<String, Long>()
+    private var firstSeenLoaded = false
+    private var firstSeenPersistedBefore = false
 
     /**
      * Metadata parsed per file, so navigating between a folder and its subfolders never parses
@@ -75,8 +95,9 @@ class HiddenVideoScanner(
      * Returns video files found under [root] that MediaStore skips.
      *
      * Results are cached in memory and persisted to disk, so a cold start reuses the last scan
-     * instead of walking the file system again. Only [invalidate] (pull-to-refresh) drops both
-     * caches and forces a fresh walk.
+     * instead of walking the file system again. A cached snapshot older than
+     * [SCAN_FRESHNESS_MILLIS] is re-walked, and [invalidate] (pull-to-refresh) drops both
+     * caches immediately.
      *
      * @param root The absolute directory to scan, or null to scan every storage volume.
      * @param respectNoMedia When true, directories whose own name or any ancestor contains a
@@ -84,14 +105,22 @@ class HiddenVideoScanner(
      */
     suspend fun scan(root: String?, respectNoMedia: Boolean = false): List<MediaVideo> {
         if (!isFileSystemAccessible()) return emptyList()
+        loadFirstSeen()
 
         val key = ScanKey(
             root,
             respectNoMedia,
         )
-        cache[key]?.let { return it }
-        loadFromDisk(key)?.let { cached ->
-            cache[key] = cached
+        val nowMillis = System.currentTimeMillis()
+        cache[key]?.takeIf { it.isFresh(nowMillis = nowMillis) }?.let { return it.videos }
+        loadFromDisk(
+            key = key,
+            nowMillis = nowMillis,
+        )?.let { cached ->
+            cache[key] = CachedScan(
+                videos = cached,
+                scannedAtMillis = nowMillis,
+            )
             // Seed the per-file metadata so scans of subfolders reuse these values
             // instead of parsing the same files again.
             cached.forEach { video -> video.rememberMetadata() }
@@ -118,7 +147,11 @@ class HiddenVideoScanner(
         // scan of a parent folder, a previous session's disk cache) is included immediately;
         // only genuinely new files wait for the background pass below.
         val videos = files.map { it.toMediaVideo(metadata = it.peekCachedVideoMetadata()) }
-        cache[key] = videos
+        cache[key] = CachedScan(
+            videos = videos,
+            scannedAtMillis = nowMillis,
+        )
+        persistFirstSeen(pruneMissingFiles = root == null)
         enrichInBackground(
             key = key,
             files = files,
@@ -132,6 +165,69 @@ class HiddenVideoScanner(
         enrichmentJobs.clear()
         cache.clear()
         clearDiskCache()
+        // The first-seen record deliberately survives: it captures when a file was discovered,
+        // not the contents of any single scan.
+    }
+
+    private fun firstSeenRecordFile(): File = File(
+        context.filesDir,
+        "hidden_first_seen.tsv",
+    )
+
+    private fun loadFirstSeen() {
+        if (firstSeenLoaded) return
+        firstSeenLoaded = true
+        val file = firstSeenRecordFile()
+        if (!file.exists()) return
+        firstSeenPersistedBefore = true
+        runCatching {
+            file.readLines().forEach { line ->
+                val separator = line.indexOf('\t')
+                if (separator <= 0) return@forEach
+                val seconds = line.substring(separator + 1).trim().toLongOrNull() ?: return@forEach
+                firstSeenByPath[
+                    line.substring(
+                        0,
+                        separator,
+                    ),
+                ] = seconds
+            }
+        }
+    }
+
+    private fun persistFirstSeen(pruneMissingFiles: Boolean) {
+        if (pruneMissingFiles) {
+            firstSeenByPath.keys
+                .filter { path -> !File(path).exists() }
+                .forEach { path -> firstSeenByPath.remove(path) }
+        }
+        runCatching {
+            firstSeenRecordFile().writeText(
+                firstSeenByPath.entries.joinToString(separator = "\n") { (path, seconds) ->
+                    "$path\t$seconds"
+                },
+            )
+            // A record now exists, so later discoveries must use discovery time rather than
+            // falling back to file timestamps.
+            firstSeenPersistedBefore = true
+        }
+    }
+
+    /**
+     * Epoch seconds at which [path] was first seen, recording it on first discovery.
+     *
+     * Until any record exists the file's own timestamp is used, so enabling hidden media does
+     * not mark an existing library as entirely new.
+     */
+    private fun firstSeenSecondsFor(path: String): Long {
+        firstSeenByPath[path]?.let { return it }
+        val discoveredAt = if (firstSeenPersistedBefore) {
+            System.currentTimeMillis() / 1000L
+        } else {
+            File(path).lastModified() / 1000L
+        }
+        firstSeenByPath[path] = discoveredAt
+        return discoveredAt
     }
 
     private data class CachedFileMetadata(
@@ -194,9 +290,12 @@ class HiddenVideoScanner(
         }
     }
 
-    private fun loadFromDisk(key: ScanKey): List<MediaVideo>? {
+    private fun loadFromDisk(key: ScanKey, nowMillis: Long): List<MediaVideo>? {
         val file = diskFile(key)
         if (!file.exists()) return null
+        // A snapshot past the freshness window is re-walked: files added to a hidden folder
+        // never reach MediaStore, so no change notification can refresh the cache.
+        if (nowMillis - file.lastModified() > SCAN_FRESHNESS_MILLIS) return null
         return runCatching {
             val lines = file.readLines()
                 .map { it.trim() }
@@ -242,7 +341,10 @@ class HiddenVideoScanner(
                     )
                     videos
                 }
-                cache[key] = enriched
+                cache[key] = CachedScan(
+                    videos = enriched,
+                    scannedAtMillis = cache[key]?.scannedAtMillis ?: System.currentTimeMillis(),
+                )
                 cacheUpdates.tryEmit(Unit)
             } catch (e: CancellationException) {
                 throw e
@@ -272,7 +374,7 @@ class HiddenVideoScanner(
             height = metadata?.height ?: 0,
             // Seconds, matching the MediaStore date units consumed by Video.isNew and sorting.
             dateModified = lastModified() / 1000L,
-            dateAdded = lastModified() / 1000L,
+            dateAdded = firstSeenSecondsFor(path = canonicalPath),
             isHidden = true,
         )
     }
@@ -303,7 +405,7 @@ class HiddenVideoScanner(
             height = height,
             // Seconds, matching the MediaStore date units consumed by Video.isNew and sorting.
             dateModified = file.lastModified() / 1000L,
-            dateAdded = file.lastModified() / 1000L,
+            dateAdded = firstSeenSecondsFor(path = path),
             isHidden = true,
         )
     }
@@ -442,6 +544,13 @@ class HiddenVideoScanner(
     companion object {
         private const val TAG = "HiddenVideoScanner"
         private const val MAX_CONCURRENT_METADATA_READS = 4
+
+        /**
+         * How long a scan snapshot stays usable. Hidden folders produce no MediaStore change
+         * notifications, so without this window files added after a scan would stay invisible
+         * until a manual refresh.
+         */
+        private const val SCAN_FRESHNESS_MILLIS = 60_000L
 
         private val SUPPORTED_EXTENSIONS = setOf(
             "3gp",

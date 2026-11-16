@@ -119,6 +119,59 @@ class HiddenVideoScannerTest {
     }
 
     @Test
+    fun `stale scan cache is re-walked so newly added files appear`() = runBlocking {
+        File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        // Files added to a hidden folder never reach MediaStore, so no change notification
+        // refreshes the cache; only the freshness window (or pull-to-refresh) can.
+        val lateVideo = File(
+            root,
+            ".late.mp4",
+        ).apply { writeText("video") }
+        val cacheFile = context.filesDir.listFiles()!!.single { it.name.startsWith("hidden_scan_") }
+        cacheFile.setLastModified(System.currentTimeMillis() - 10 * 60 * 1000L)
+
+        val reloaded = HiddenVideoScanner(
+            context = context,
+            applicationScope = scope,
+        ).scan(root.absolutePath)
+
+        assertTrue(reloaded.any { it.path == lateVideo.path })
+    }
+
+    @Test
+    fun `newly discovered files report discovery time as dateAdded`() = runBlocking {
+        File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+        scanner.scan(root.absolutePath)
+
+        val lateVideo = File(
+            root,
+            ".late.mp4",
+        ).apply {
+            writeText("video")
+            // A copied file keeps its original mtime, which must not decide "newly added".
+            setLastModified(System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000L)
+        }
+        scanner.invalidate()
+
+        val result = scanner.scan(root.absolutePath)
+
+        val mediaVideo = result.single { it.path == lateVideo.path }
+        assertTrue(
+            "dateAdded was ${mediaVideo.dateAdded}",
+            mediaVideo.dateAdded * 1000L > System.currentTimeMillis() - 60_000L,
+        )
+    }
+
+    @Test
     fun `respecting nomedia excludes directories with nomedia marker`() = runBlocking {
         val hiddenFile = File(
             root,
