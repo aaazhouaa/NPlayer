@@ -58,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.scene.SceneStrategy
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -73,6 +74,7 @@ import dev.anilbeesetti.nextplayer.core.ui.components.thenIf
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
 import dev.anilbeesetti.nextplayer.navigation.NextNavigationBar
 import dev.anilbeesetti.nextplayer.navigation.NextNavigationRail
+import dev.anilbeesetti.nextplayer.navigation.StackedSceneStrategy
 import dev.anilbeesetti.nextplayer.navigation.TopLevelDestination
 import dev.anilbeesetti.nextplayer.navigation.TopLevelNavState
 import dev.anilbeesetti.nextplayer.navigation.mediaNavGraph
@@ -157,6 +159,9 @@ class MainActivity : FragmentActivity() {
                     color = MaterialTheme.colorScheme.surfaceContainer,
                 ) {
                     val navState = rememberTopLevelNavState()
+                    val sceneStrategies: List<SceneStrategy<NavKey>> = remember(navState) {
+                        listOf(StackedSceneStrategy(navState.topLevelContentKeys))
+                    }
 
                     LaunchedEffect(key1 = pendingPlaylistId) {
                         pendingPlaylistId?.let { playlistId ->
@@ -243,6 +248,7 @@ class MainActivity : FragmentActivity() {
                                     entryProvider = provider,
                                     entryDecorator = navigationInsetsDecorator,
                                 ),
+                                sceneStrategies = sceneStrategies,
                                 onBack = { navState.goBack() },
                                 transitionSpec = {
                                     navState.navigationTransition(
