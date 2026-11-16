@@ -270,8 +270,9 @@ class HiddenVideoScanner(
             size = length(),
             width = metadata?.width ?: 0,
             height = metadata?.height ?: 0,
-            dateModified = lastModified(),
-            dateAdded = lastModified(),
+            // Seconds, matching the MediaStore date units consumed by Video.isNew and sorting.
+            dateModified = lastModified() / 1000L,
+            dateAdded = lastModified() / 1000L,
             isHidden = true,
         )
     }
@@ -300,8 +301,9 @@ class HiddenVideoScanner(
             size = file.length(),
             width = width,
             height = height,
-            dateModified = file.lastModified(),
-            dateAdded = file.lastModified(),
+            // Seconds, matching the MediaStore date units consumed by Video.isNew and sorting.
+            dateModified = file.lastModified() / 1000L,
+            dateAdded = file.lastModified() / 1000L,
             isHidden = true,
         )
     }

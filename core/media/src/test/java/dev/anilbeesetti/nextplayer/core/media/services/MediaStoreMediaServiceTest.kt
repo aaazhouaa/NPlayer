@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.database.MatrixCursor
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import androidx.core.net.toUri
 import dev.anilbeesetti.nextplayer.core.common.extensions.VIDEO_COLLECTION_URI
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -202,6 +203,28 @@ class MediaStoreMediaServiceTest {
             600_000L,
             emissions[1].single { it.path == video.absolutePath }.duration,
         )
+    }
+
+    @Test
+    fun `findVideo reports file dates in seconds like mediastore rows`() = runBlocking {
+        val video = File(
+            context.cacheDir,
+            ".hidden.mp4",
+        ).apply { writeText(text = "video") }
+        try {
+            val mediaVideo = service.findVideo(video.toUri())
+
+            assertEquals(
+                video.lastModified() / 1000L,
+                mediaVideo?.dateAdded,
+            )
+            assertEquals(
+                video.lastModified() / 1000L,
+                mediaVideo?.dateModified,
+            )
+        } finally {
+            video.delete()
+        }
     }
 
     private class VideoProvider : ContentProvider() {

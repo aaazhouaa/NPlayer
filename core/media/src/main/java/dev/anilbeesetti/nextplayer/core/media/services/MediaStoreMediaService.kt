@@ -240,8 +240,9 @@ class MediaStoreMediaService(
             size = file.length(),
             width = metadata?.width ?: 0,
             height = metadata?.height ?: 0,
-            dateModified = file.lastModified(),
-            dateAdded = file.lastModified(),
+            // Seconds, matching the MediaStore date units consumed by Video.isNew and sorting.
+            dateModified = file.lastModified() / 1000L,
+            dateAdded = file.lastModified() / 1000L,
             isHidden = file.path.split(File.separator).any { it.startsWith(".") },
         )
     }

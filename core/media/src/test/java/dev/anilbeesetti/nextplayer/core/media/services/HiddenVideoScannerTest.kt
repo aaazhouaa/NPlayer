@@ -98,6 +98,27 @@ class HiddenVideoScannerTest {
     }
 
     @Test
+    fun `scanned videos report dates in seconds like mediastore rows`() = runBlocking {
+        val video = File(
+            root,
+            ".hidden.mp4",
+        ).apply { writeText("video") }
+
+        val result = scanner.scan(root.absolutePath)
+
+        val mediaVideo = result.single { it.path == video.path }
+        // Seconds, not milliseconds: Video.isNew and date sorting consume MediaStore's units.
+        assertEquals(
+            video.lastModified() / 1000L,
+            mediaVideo.dateAdded,
+        )
+        assertEquals(
+            video.lastModified() / 1000L,
+            mediaVideo.dateModified,
+        )
+    }
+
+    @Test
     fun `respecting nomedia excludes directories with nomedia marker`() = runBlocking {
         val hiddenFile = File(
             root,
@@ -420,6 +441,10 @@ class HiddenVideoScannerTest {
         assertEquals(
             video.path,
             mediaVideo.path,
+        )
+        assertEquals(
+            video.lastModified() / 1000L,
+            mediaVideo.dateAdded,
         )
         assertEquals(
             123_456L,
