@@ -8,7 +8,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -235,6 +238,48 @@ class MediaPickerScreenTest {
         composeRule.onNodeWithText(text = "1080p").assertIsDisplayed()
         composeRule.onNodeWithText(text = "320KB").assertIsDisplayed()
         composeRule.onNodeWithText(text = "/storage/emulated/0/Download").assertIsDisplayed()
+    }
+
+    @Test
+    fun longPressOnItemVibratesOnce() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VIDEO)
+        val video = Video.sample.copy(
+            nameWithExtension = "Clip.mp4",
+            uriString = "content://media/external/video/media/1",
+        )
+        val hapticTypes = mutableListOf<HapticFeedbackType>()
+        val hapticFeedback = object : HapticFeedback {
+            override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                hapticTypes.add(element = hapticFeedbackType)
+            }
+        }
+        composeRule.setContent {
+            CompositionLocalProvider(LocalHapticFeedback provides hapticFeedback) {
+                NextPlayerTheme {
+                    MediaPickerScreenContent(
+                        state = MediaPickerUiState(
+                            folderName = "Movies",
+                            mediaDataState = DataState.Success(
+                                value = MediaHolder(
+                                    videos = listOf(element = video),
+                                    folders = emptyList(),
+                                ),
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText(text = "Clip").performTouchInput { longClick() }
+
+        // Exactly one haptic: the list item's combinedClickable performs the framework
+        // long-press feedback, and MediaView must not add a second one.
+        assertEquals(
+            listOf(element = HapticFeedbackType.LongPress),
+            hapticTypes,
+        )
     }
 
     @Test
