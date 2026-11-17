@@ -30,7 +30,7 @@ import org.jetbrains.kotlin.psi.KtValueArgumentList
 class CallLayoutRule :
     Rule(
         ruleId = RuleId(value = "nplayer:call-layout"),
-        about = About(maintainer = "Next Player"),
+        about = About(maintainer = "N Player"),
         visitorModifiers = setOf(
             RunAfterRule(
                 ruleId = RuleId(value = "standard:argument-list-wrapping"),

@@ -12,7 +12,7 @@ import com.nplayer.feature.player.extensions.setExtras
 import com.nplayer.feature.player.model.Subtitle
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 
-/** The VIEW intent contract shared by MX Player Free, Pro, and Next Player. */
+/** The VIEW intent contract shared by MX Player Free, Pro, and N Player. */
 class PlayerApi(private val intent: Intent) {
     private val extras = intent.extras
     val isApiAccess: Boolean get() = extras?.keySet()?.any { it in API_KEYS } == true

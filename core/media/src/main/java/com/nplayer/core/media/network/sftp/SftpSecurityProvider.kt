@@ -35,5 +35,5 @@ internal object SftpSecurityProvider {
     }
 
     private const val VERSION = 1.0
-    private const val DESCRIPTION = "Next Player bundled Bouncy Castle provider"
+    private const val DESCRIPTION = "N Player bundled Bouncy Castle provider"
 }

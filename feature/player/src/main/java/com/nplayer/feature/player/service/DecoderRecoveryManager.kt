@@ -5,7 +5,7 @@ import com.nplayer.feature.player.model.DecoderRecoveryStatus
 import com.nplayer.feature.player.model.DecoderTrackType
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 
-/** Keeps NextPlayer's decoder fallback policy separate from nextlib's decoder switching. */
+/** Keeps N Player's decoder fallback policy separate from nextlib's decoder switching. */
 internal class DecoderRecoveryManager {
 
     private val videoRecovery = TrackRecovery()
