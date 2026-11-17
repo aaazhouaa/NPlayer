@@ -248,9 +248,13 @@ internal class SettingsBackupCodec(private val subtitleEncodings: Set<String>) {
         return when (name) {
             "playerBrightness", "thumbnailFramePosition" -> number != null && number in 0.0..1.0
 
-            "defaultPlaybackSpeed", "longPressControlsSpeed" -> number != null && number in 0.2..4.0
+            "defaultPlaybackSpeed" -> number != null && number in 0.2..4.0
 
-            "seekSensitivity", "volumeGestureSensitivity", "brightnessGestureSensitivity" ->
+            "longPressControlsSpeed" -> number != null && number in 0.2..8.0
+
+            "seekSensitivity" -> number != null && number in 0.1..5.0
+
+            "volumeGestureSensitivity", "brightnessGestureSensitivity" ->
                 number != null && number in 0.1..2.0
 
             "seekIncrement" -> number != null && number in 1.0..60.0

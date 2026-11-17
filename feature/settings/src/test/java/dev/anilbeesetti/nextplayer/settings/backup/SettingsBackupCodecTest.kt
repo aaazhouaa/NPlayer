@@ -126,6 +126,46 @@ class SettingsBackupCodecTest {
     }
 
     @Test
+    fun longPressSpeedAcceptsValuesUpToEightTimes() {
+        val restored = decode(
+            """{"playerPreferences":{"longPressControlsSpeed":8.0,"seekSensitivity":1.25}}""",
+        )
+
+        assertEquals(
+            8.0f,
+            restored.playerPreferences.longPressControlsSpeed,
+        )
+        assertEquals(
+            1.25f,
+            restored.playerPreferences.seekSensitivity,
+        )
+
+        val clamped = decode("""{"playerPreferences":{"longPressControlsSpeed":8.5}}""")
+
+        assertEquals(
+            player.longPressControlsSpeed,
+            clamped.playerPreferences.longPressControlsSpeed,
+        )
+    }
+
+    @Test
+    fun seekSensitivityAcceptsValuesUpToFive() {
+        val restored = decode("""{"playerPreferences":{"seekSensitivity":5.0}}""")
+
+        assertEquals(
+            5.0f,
+            restored.playerPreferences.seekSensitivity,
+        )
+
+        val rejected = decode("""{"playerPreferences":{"seekSensitivity":5.5}}""")
+
+        assertEquals(
+            player.seekSensitivity,
+            rejected.playerPreferences.seekSensitivity,
+        )
+    }
+
+    @Test
     fun numericFloatsAcceptIntegralJsonValues() {
         val restored = decode("""{"playerPreferences":{"defaultPlaybackSpeed":2}}""")
 
