@@ -5,6 +5,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +43,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -48,9 +54,23 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.extractor.metadata.Chapter
 import com.nplayer.feature.player.LocalUseMaterialYouControls
 import com.nplayer.feature.player.state.currentChapterIndex
+import kotlin.math.abs
 
-/** Smallest touch target Material allows; the drawn track stays 4-8dp inside it. */
-private val SEEKBAR_TOUCH_TARGET = 48.dp
+/**
+ * Height of the seekbar's touch target, which is taller than the 4-8dp track it draws.
+ *
+ * Material's 48dp minimum only bounds the component, it is not a comfortable size: a fingertip
+ * covers 8-10mm, so a 48dp (7.6mm) strip still gets missed above and below. 64dp (10.2mm)
+ * covers the fingertip instead, at the cost of a taller bottom bar.
+ */
+private val SEEKBAR_TOUCH_TARGET = 64.dp
+
+/**
+ * Height Material's `Slider` accepts presses in, regardless of how tall a container it is given.
+ * Its internal minimum interactive size wins over the caller's height, leaving the rest of
+ * [SEEKBAR_TOUCH_TARGET] inert.
+ */
+private val SLIDER_OWN_TOUCH_HEIGHT = 48.dp
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -99,13 +119,42 @@ internal fun PlayerSeekbar(
             if (isFocused && !it.isFocused) onValueChangeFinished()
             isFocused = it.isFocused
         }
-    // The sliders draw a 4-8dp track, but the touch target has to stay at the Material minimum:
-    // a fingertip covers roughly 8-10mm, so a 24dp strip is mostly missed - and missing it
-    // falls through to the gesture layer behind, which closes the controls.
+    // The sliders draw a 4-8dp track and only accept presses within Material's 48dp minimum
+    // interactive size, which is narrower than a fingertip. Presses in the extra height of
+    // [SEEKBAR_TOUCH_TARGET] are handled here instead of falling through to the gesture layer
+    // behind, which would read them as a tap on the video and close the controls.
+    val density = LocalDensity.current
+    val sliderOwnHalfHeightPx = with(density) { SLIDER_OWN_TOUCH_HEIGHT.toPx() / 2f }
+    val currentDuration by rememberUpdatedState(newValue = duration)
+    val currentOnValueChange by rememberUpdatedState(newValue = onValueChange)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(SEEKBAR_TOUCH_TARGET),
+            .height(SEEKBAR_TOUCH_TARGET)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(
+                        requireUnconsumed = false,
+                        pass = PointerEventPass.Initial,
+                    )
+                    val distanceFromCenter = abs(down.position.y - size.height / 2f)
+                    val trackValueRange = currentDuration.takeIf { it > 0f }
+                    if (trackValueRange == null || distanceFromCenter <= sliderOwnHalfHeightPx) {
+                        return@awaitEachGesture
+                    }
+                    // Only the padding around the slider reaches this branch. Claiming the
+                    // gesture keeps it away from the tap handler behind, then jumps straight to
+                    // the pressed position the way the slider itself would.
+                    down.consume()
+                    val fraction = (down.position.x / size.width).coerceIn(
+                        minimumValue = 0f,
+                        maximumValue = 1f,
+                    )
+                    currentOnValueChange(fraction * trackValueRange)
+                    onValueChangeFinished()
+                    waitForUpOrCancellation()
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
         CompositionLocalProvider(value = LocalLayoutDirection provides LayoutDirection.Ltr) {

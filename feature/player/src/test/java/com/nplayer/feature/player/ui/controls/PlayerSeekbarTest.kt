@@ -12,11 +12,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.unit.dp
 import androidx.media3.extractor.metadata.Chapter
 import com.nplayer.core.ui.theme.NPlayerTheme
 import com.nplayer.feature.player.LocalUseMaterialYouControls
@@ -34,22 +32,63 @@ class PlayerSeekbarTest {
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun seekbarKeepsAMaterialSizedTouchTarget() {
+    fun pressesWellAboveAndBelowTheTrackStillSeek() {
+        // A fingertip covers 8-10mm, so presses land well off the drawn 4-8dp track. The Material
+        // Slider only accepts presses within its own 48dp interactive area, so the padding above
+        // and below has to be handled by the seekbar container instead of falling through to the
+        // gesture layer, which would read the press as a tap on the video.
+        var materialControls by mutableStateOf(value = false)
+        var hits = 0
         composeRule.setContent {
             NPlayerTheme {
-                PlayerSeekbar(
-                    position = 100f,
-                    duration = 1_000f,
-                    chapters = emptyList(),
-                    onSeek = {},
-                    onSeekFinished = {},
-                )
+                CompositionLocalProvider(
+                    value = LocalUseMaterialYouControls provides materialControls,
+                ) {
+                    PlayerSeekbar(
+                        position = 100f,
+                        duration = 1_000f,
+                        chapters = emptyList(),
+                        onSeek = { hits++ },
+                        onSeekFinished = {},
+                    )
+                }
             }
         }
 
-        // The drawn track is 4-8dp, but the target has to stay at the Material minimum. A 24dp
-        // strip is narrower than a fingertip, so most presses on the track would miss it.
-        composeRule.onRoot().assertHeightIsAtLeast(48.dp)
+        val root = composeRule.onRoot()
+        for (material in listOf(
+            false,
+            true,
+        )) {
+            composeRule.runOnIdle { materialControls = material }
+            val center = root.fetchSemanticsNode().boundsInRoot.center
+
+            // 30dp from the center sits outside the slider's own 48dp band but inside the
+            // seekbar's taller touch target.
+            for (offset in listOf(
+                -30f,
+                -26f,
+                26f,
+                30f,
+            )) {
+                composeRule.runOnIdle { hits = 0 }
+                root.performTouchInput {
+                    down(
+                        position = Offset(
+                            x = width * 0.5f,
+                            y = center.y + offset,
+                        ),
+                    )
+                    up()
+                }
+                composeRule.waitForIdle()
+                assertEquals(
+                    "style material=$material, offset=$offset",
+                    1,
+                    composeRule.runOnIdle { hits },
+                )
+            }
+        }
     }
 
     @Test
