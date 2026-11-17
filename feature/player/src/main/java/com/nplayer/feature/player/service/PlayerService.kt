@@ -970,6 +970,9 @@ class PlayerService : MediaSessionService() {
                 playerPreferences.requireAudioFocus,
             )
             .setHandleAudioBecomingNoisy(playerPreferences.pauseOnHeadsetDisconnect)
+            // Previous always steps to the previous item in the queue instead of rewinding the
+            // current one; reaching the start is what seekbar scrubbing is for.
+            .setMaxSeekToPreviousPositionMs(Long.MAX_VALUE)
             .build()
             .also {
                 it.setPlaybackSpeed(playerPreferences.defaultPlaybackSpeed)

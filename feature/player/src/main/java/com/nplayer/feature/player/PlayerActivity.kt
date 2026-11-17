@@ -468,25 +468,37 @@ class PlayerActivity : ComponentActivity() {
             return@withContext
         }
 
-        val mediaContentUri = if (request.isApiAccess) null else getMediaContentUri(uri)
+        // Hidden files come from the file-system scanner, so MediaStore has no row to resolve a
+        // content uri from. Using the file uri itself still yields their folder queue, which they
+        // would otherwise lose (a single-item queue disables next and only rewinds previous).
+        val playlistSourceUri = if (request.isApiAccess) {
+            null
+        } else {
+            getMediaContentUri(uri) ?: uri.takeIf {
+                it.scheme.equals(
+                    "file",
+                    ignoreCase = true,
+                )
+            }
+        }
         val explicitPlaylist = request.getPlaylist()
         val playlist = explicitPlaylist.takeIf { it.isNotEmpty() }
-            ?: mediaContentUri?.let { mediaUri ->
-                viewModel.getPlaylistFromUri(uri = mediaUri)
+            ?: playlistSourceUri?.let { sourceUri ->
+                viewModel.getPlaylistFromUri(uri = sourceUri)
                     .map { it.uriString }
                     .toMutableList()
                     .apply {
-                        if (!contains(mediaUri.toString())) {
+                        if (!contains(sourceUri.toString())) {
                             add(
                                 index = 0,
-                                element = mediaUri.toString(),
+                                element = sourceUri.toString(),
                             )
                         }
                     }
             } ?: listOf(uri.toString())
 
         val mediaItemIndexToPlay = playlist.indexOfFirst {
-            it == (mediaContentUri ?: uri).toString()
+            it == (playlistSourceUri ?: uri).toString()
         }.takeIf { it >= 0 } ?: 0
 
         val apiSubs = request.getSubs().map { subtitle ->
