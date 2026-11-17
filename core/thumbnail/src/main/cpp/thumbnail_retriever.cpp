@@ -342,7 +342,7 @@ static jlong create_context_from_source(const char *source, int descriptor = -1)
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeCreateFromPath(
+Java_com_nplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeCreateFromPath(
         JNIEnv *env,
         jobject thiz,
         jstring file_path) {
@@ -354,7 +354,7 @@ Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeC
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeCreateFromFD(
+Java_com_nplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeCreateFromFD(
         JNIEnv *env,
         jobject thiz,
         jint file_descriptor) {
@@ -363,7 +363,7 @@ Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeC
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeGetDurationMillis(
+Java_com_nplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeGetDurationMillis(
         JNIEnv *, jobject, jlong handle) {
     auto *context = context_from_handle(handle);
     int64_t duration = context->formatContext->duration;
@@ -372,7 +372,7 @@ Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeG
 
 extern "C"
 JNIEXPORT jbyteArray JNICALL
-Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeGetEmbeddedPicture(
+Java_com_nplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeGetEmbeddedPicture(
         JNIEnv *env,
         jobject thiz,
         jlong handle) {
@@ -409,7 +409,7 @@ Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeG
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeGetFrameAtTime(
+Java_com_nplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeGetFrameAtTime(
         JNIEnv *env,
         jobject thiz,
         jlong handle,
@@ -424,7 +424,7 @@ Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeG
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeGetRotationDegrees(
+Java_com_nplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeGetRotationDegrees(
         JNIEnv *env,
         jobject thiz,
         jlong handle) {
@@ -437,7 +437,7 @@ Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeG
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_dev_anilbeesetti_nextplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeRelease(
+Java_com_nplayer_core_thumbnail_FfmpegThumbnailRetriever_nativeRelease(
         JNIEnv *env,
         jobject thiz,
         jlong handle) {

@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.anilbeesetti.nextplayer.feature.playlist"
+    namespace = "com.nplayer.feature.playlist"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {

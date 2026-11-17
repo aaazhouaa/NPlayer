@@ -1,0 +1,48 @@
+package com.nplayer.core.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class ApplicationPreferences(
+    val sortBy: Sort.By = Sort.By.TITLE,
+    val sortOrder: Sort.Order = Sort.Order.ASCENDING,
+    val themeConfig: ThemeConfig = ThemeConfig.SYSTEM,
+    val useHighContrastDarkTheme: Boolean = false,
+    val useDynamicColors: Boolean = true,
+    val markLastPlayedMedia: Boolean = true,
+    val isHistoryPaused: Boolean = false,
+    val includeNetworkWatchHistory: Boolean = true,
+    val excludeFolders: List<String> = emptyList(),
+    val showHiddenFiles: Boolean = false,
+    val scanFolders: List<String> = emptyList(),
+    val respectNoMedia: Boolean = false,
+    val mediaViewMode: MediaViewMode = MediaViewMode.FOLDERS,
+    val mediaLayoutMode: MediaLayoutMode = MediaLayoutMode.GRID,
+
+    // Network browser
+    val networkSortBy: Sort.By = Sort.By.TITLE,
+    val networkSortOrder: Sort.Order = Sort.Order.ASCENDING,
+    val networkMediaLayoutMode: MediaLayoutMode = MediaLayoutMode.GRID,
+
+    // Fields
+    val showDurationField: Boolean = true,
+    val showFolderDurationField: Boolean = true,
+    val showExtensionField: Boolean = false,
+    val showPathField: Boolean = true,
+    val showResolutionField: Boolean = true,
+    val showSizeField: Boolean = true,
+    val showThumbnailField: Boolean = true,
+    val showPlayedProgress: Boolean = true,
+
+    val newVideoThresholdDays: Int = 7,
+
+    // Thumbnail generation
+    val thumbnailGenerationStrategy: ThumbnailGenerationStrategy =
+        ThumbnailGenerationStrategy.FRAME_AT_PERCENTAGE,
+    val thumbnailFramePosition: Float = DEFAULT_THUMBNAIL_FRAME_POSITION,
+) {
+
+    companion object {
+        const val DEFAULT_THUMBNAIL_FRAME_POSITION = 0.33f
+    }
+}

@@ -1,1 +1,1 @@
--keep class dev.anilbeesetti.nextplayer.core.thumbnail.FfmpegThumbnailRetriever { *; }
+-keep class com.nplayer.core.thumbnail.FfmpegThumbnailRetriever { *; }

@@ -33,7 +33,7 @@ val prepareFfmpeg = tasks.register<Sync>("prepareFfmpeg") {
 }
 
 android {
-    namespace = "dev.anilbeesetti.nextplayer.core.thumbnail"
+    namespace = "com.nplayer.core.thumbnail"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     buildToolsVersion = "36.0.0"
     ndkVersion = "29.0.14206865"
