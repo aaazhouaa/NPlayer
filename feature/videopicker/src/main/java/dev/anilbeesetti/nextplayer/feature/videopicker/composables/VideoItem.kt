@@ -316,12 +316,15 @@ private fun ThumbnailView(
 ) {
     val context = LocalContext.current
     val isLocalVideo = remember(video.uriString) { video.isLocalUri() }
+    // produceState keeps the value from remember across key changes, so the producer must
+    // recompute on (re)start instead of waiting for the first polling tick.
     val isNew by produceState(
         initialValue = video.isNew(thresholdDays = preferences.newVideoThresholdDays),
         key1 = video.dateAdded,
         key2 = video.lastPlayedAt,
         key3 = preferences.newVideoThresholdDays,
     ) {
+        value = video.isNew(thresholdDays = preferences.newVideoThresholdDays)
         while (value) {
             delay(60.seconds)
             value = video.isNew(thresholdDays = preferences.newVideoThresholdDays)
