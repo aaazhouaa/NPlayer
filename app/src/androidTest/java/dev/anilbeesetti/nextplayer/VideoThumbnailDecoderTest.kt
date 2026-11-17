@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.database.Cursor
 import android.database.MatrixCursor
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -21,8 +23,12 @@ import coil3.ImageLoader
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
+import coil3.request.allowHardware
+import coil3.toBitmap
+import dev.anilbeesetti.nextplayer.core.thumbnail.FfmpegThumbnailRetriever
 import java.io.File
 import java.util.UUID
+import kotlin.math.abs
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -35,6 +41,9 @@ class VideoThumbnailDecoderTest {
 
     private companion object {
         const val CONTENT_URI = "content://media/external/video/media/1"
+
+        // Red/green/blue IDR frames start at PTS 30s, so relative seeks must apply the offset.
+        const val TS_ASSET = "thumbnail-colors-offset.ts"
     }
 
     @Test
@@ -65,15 +74,93 @@ class VideoThumbnailDecoderTest {
         }
     }
 
-    private suspend fun withContentVideo(block: suspend (Context) -> Unit) {
-        val targetContext = ApplicationProvider.getApplicationContext<Context>()
-        val file = File(
-            targetContext.cacheDir,
-            "thumbnail-test.mp4",
+    @Test
+    fun transportStreamWithNonzeroStartTimeFileDecodesDifferentFrameAtThirtyThreePercent() =
+        runBlocking {
+            withVideoAsset(assetName = TS_ASSET) { context, file ->
+                assertDecodesDifferentFrameAtThirtyThreePercent(
+                    context = context,
+                    uri = file.toURI().toString(),
+                )
+            }
+        }
+
+    @Test
+    fun transportStreamWithNonzeroStartTimeContentUriDecodesDifferentFrameAtThirtyThreePercent() =
+        runBlocking {
+            withContentVideo(
+                assetName = TS_ASSET,
+                mimeType = "video/mp2ts",
+            ) { context ->
+                assertDecodesDifferentFrameAtThirtyThreePercent(
+                    context = context,
+                    uri = CONTENT_URI,
+                )
+            }
+        }
+
+    @Test
+    fun transportStreamRetrieverSeeksAfterOriginalDescriptorIsClosed() = runBlocking {
+        withVideoAsset(assetName = TS_ASSET) { _, file ->
+            FfmpegThumbnailRetriever().use { retriever ->
+                ParcelFileDescriptor.open(
+                    file,
+                    ParcelFileDescriptor.MODE_READ_ONLY,
+                ).use { descriptor ->
+                    retriever.setDataSource(descriptor)
+                }
+                assertTrue(
+                    "Expected about six seconds excluding the 30s PTS offset, " +
+                        "got ${retriever.durationMillis}ms",
+                    retriever.durationMillis in 5_000L..6_500L,
+                )
+                val firstFrame = checkNotNull(retriever.getFrameAtTime(0L))
+                try {
+                    val targetFrame = checkNotNull(
+                        retriever.getFrameAtTime((retriever.durationMillis * 0.33 * 1000).toLong()),
+                    )
+                    try {
+                        assertDifferentFrameColors(
+                            firstFrame = firstFrame,
+                            targetFrame = targetFrame,
+                        )
+                    } finally {
+                        targetFrame.recycle()
+                    }
+                } finally {
+                    firstFrame.recycle()
+                }
+            }
+        }
+    }
+
+    private suspend fun withVideoAsset(assetName: String, block: suspend (Context, File) -> Unit) {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File.createTempFile(
+            "thumbnail-test-",
+            ".${assetName.substringAfterLast('.')}",
+            context.cacheDir,
         )
-        InstrumentationRegistry.getInstrumentation().context.assets.open(
-            "thumbnail-test.mp4",
-        ).use { input -> file.outputStream().use { input.copyTo(out = it) } }
+        try {
+            InstrumentationRegistry.getInstrumentation().context.assets.open(
+                assetName,
+            ).use { input ->
+                file.outputStream().use { input.copyTo(out = it) }
+            }
+            block(
+                context,
+                file,
+            )
+        } finally {
+            file.delete()
+        }
+    }
+
+    private suspend fun withContentVideo(
+        assetName: String = "thumbnail-test.mp4",
+        mimeType: String = "video/mp4",
+        block: suspend (Context) -> Unit,
+    ) = withVideoAsset(assetName = assetName) { targetContext, file ->
         val provider = object : ContentProvider() {
             override fun onCreate(): Boolean = true
 
@@ -83,7 +170,7 @@ class VideoThumbnailDecoderTest {
                     ParcelFileDescriptor.MODE_READ_ONLY,
                 )
 
-            override fun getType(uri: Uri): String = "video/mp4"
+            override fun getType(uri: Uri): String = mimeType
 
             override fun query(
                 uri: Uri,
@@ -92,7 +179,7 @@ class VideoThumbnailDecoderTest {
                 selectionArgs: Array<out String>?,
                 sortOrder: String?,
             ): Cursor = MatrixCursor(arrayOf(MediaStore.Video.Media.DATA)).apply {
-                addRow(arrayOf("/inaccessible/.trashed-1234567890-video.mp4"))
+                addRow(arrayOf("/inaccessible/.trashed-1234567890-$assetName"))
             }
 
             override fun insert(uri: Uri, values: ContentValues?): Uri? = null
@@ -113,11 +200,7 @@ class VideoThumbnailDecoderTest {
             override fun getContentResolver(): ContentResolver = resolver
         }
 
-        try {
-            block(context)
-        } finally {
-            file.delete()
-        }
+        block(context)
     }
 
     @Test
@@ -232,7 +315,50 @@ class VideoThumbnailDecoderTest {
         }
     }
 
-    private suspend fun assertDecodes(context: Context, uri: String, strategy: ThumbnailStrategy) {
+    private suspend fun assertDecodesDifferentFrameAtThirtyThreePercent(
+        context: Context,
+        uri: String,
+    ) {
+        val firstFrame = assertDecodes(
+            context = context,
+            uri = uri,
+            strategy = ThumbnailStrategy.FirstFrame,
+        ).image.toBitmap()
+        val targetFrame = assertDecodes(
+            context = context,
+            uri = uri,
+            strategy = ThumbnailStrategy.FrameAtPercentage(percentage = 0.33f),
+        ).image.toBitmap()
+        assertDifferentFrameColors(
+            firstFrame = firstFrame,
+            targetFrame = targetFrame,
+        )
+    }
+
+    private fun assertDifferentFrameColors(firstFrame: Bitmap, targetFrame: Bitmap) {
+        val firstColor = firstFrame.getPixel(
+            firstFrame.width / 2,
+            firstFrame.height / 2,
+        )
+        val targetColor = targetFrame.getPixel(
+            targetFrame.width / 2,
+            targetFrame.height / 2,
+        )
+        val colorDistance = abs(Color.red(firstColor) - Color.red(targetColor)) +
+            abs(Color.green(firstColor) - Color.green(targetColor)) +
+            abs(Color.blue(firstColor) - Color.blue(targetColor))
+        assertTrue(
+            "Expected distinct first/33% frame colors, got " +
+                "${Integer.toHexString(firstColor)} and ${Integer.toHexString(targetColor)}",
+            colorDistance > 100,
+        )
+    }
+
+    private suspend fun assertDecodes(
+        context: Context,
+        uri: String,
+        strategy: ThumbnailStrategy,
+    ): SuccessResult {
         val imageLoader = ImageLoader.Builder(context = context)
             .components { add(VideoThumbnailDecoder.Factory { strategy }) }
             .build()
@@ -244,6 +370,7 @@ class VideoThumbnailDecoderTest {
                         width = 160,
                         height = 90,
                     )
+                    .allowHardware(false)
                     .memoryCachePolicy(CachePolicy.DISABLED)
                     .diskCachePolicy(CachePolicy.DISABLED)
                     .build(),
@@ -254,6 +381,7 @@ class VideoThumbnailDecoderTest {
             )
             assertTrue((result as SuccessResult).image.width > 0)
             assertTrue(result.image.height > 0)
+            return result
         } finally {
             imageLoader.shutdown()
         }

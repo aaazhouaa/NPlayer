@@ -1,0 +1,1 @@
+-keep class dev.anilbeesetti.nextplayer.core.thumbnail.FfmpegThumbnailRetriever { *; }

@@ -111,6 +111,7 @@ dependencies {
     implementation(project(":core:media"))
     implementation(project(":core:model"))
     implementation(project(":core:ui"))
+    implementation(project(":core:thumbnail"))
     implementation(project(":feature:network"))
     implementation(project(":feature:playlist"))
     implementation(project(":feature:videopicker"))
