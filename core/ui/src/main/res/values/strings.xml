@@ -269,6 +269,10 @@
     <string name="loop_mode_off">Loop: Off</string>
     <string name="loop_mode_one">Loop: One</string>
     <string name="loop_mode_all">Loop: All</string>
+    <string name="ab_repeat">A-B repeat</string>
+    <string name="ab_repeat_start">A point</string>
+    <string name="ab_repeat_end">B point</string>
+    <string name="ab_repeat_clear">Clear A-B repeat</string>
     <string name="app_developer" translatable="false">anilbeesetti</string>
     <string name="by">by %1$s</string>
     <string name="libraries">Libraries</string>

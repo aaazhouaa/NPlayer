@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,6 +44,8 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -53,6 +54,8 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.extractor.metadata.Chapter
 import com.nplayer.feature.player.LocalUseMaterialYouControls
+import com.nplayer.feature.player.model.AbRepeat
+import com.nplayer.feature.player.state.PlayerScrubState
 import com.nplayer.feature.player.state.currentChapterIndex
 import kotlin.math.abs
 
@@ -72,6 +75,12 @@ private val SEEKBAR_TOUCH_TARGET = 64.dp
  */
 private val SLIDER_OWN_TOUCH_HEIGHT = 48.dp
 
+/** Half the height of the tallest track drawn, used to locate the track's top edge. */
+private val TRACK_HALF_HEIGHT = 4.dp
+
+/** How far above the track a drag has to move before it stops seeking. */
+private val SCRUB_CANCEL_DISTANCE = 20.dp
+
 @OptIn(
     ExperimentalMaterial3Api::class,
     UnstableApi::class,
@@ -79,33 +88,31 @@ private val SLIDER_OWN_TOUCH_HEIGHT = 48.dp
 @Composable
 internal fun PlayerSeekbar(
     modifier: Modifier = Modifier,
+    scrubState: PlayerScrubState,
     position: Float,
     duration: Float,
     chapters: List<Chapter>,
-    onSeek: (Float) -> Unit,
-    onSeekFinished: () -> Unit,
+    abRepeat: AbRepeat? = null,
+    onSeekCommit: (Long) -> Unit,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
-    val currentOnSeekFinished by rememberUpdatedState(newValue = onSeekFinished)
-    var isScrubbing by remember { mutableStateOf(value = false) }
+    val currentOnSeekCommit by rememberUpdatedState(newValue = onSeekCommit)
     var lastSeekChapterIndex by remember(chapters) { mutableStateOf<Int?>(value = null) }
     val onValueChange: (Float) -> Unit = { value ->
-        isScrubbing = true
-        val chapterIndex = chapters.currentChapterIndex(value.toLong())
-        val previousChapterIndex =
-            lastSeekChapterIndex ?: chapters.currentChapterIndex(position.toLong())
-        if (chapterIndex != previousChapterIndex) {
-            hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
+        if (!scrubState.isCancelled) {
+            scrubState.onScrub(positionMs = value.toLong())
+            val chapterIndex = chapters.currentChapterIndex(value.toLong())
+            val previousChapterIndex =
+                lastSeekChapterIndex ?: chapters.currentChapterIndex(position.toLong())
+            if (chapterIndex != previousChapterIndex) {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            }
+            lastSeekChapterIndex = chapterIndex
         }
-        lastSeekChapterIndex = chapterIndex
-        onSeek(value)
     }
-    val onValueChangeFinished = {
+    val onValueChangeFinished: () -> Unit = {
         lastSeekChapterIndex = null
-        if (isScrubbing) {
-            isScrubbing = false
-            currentOnSeekFinished()
-        }
+        scrubState.endScrub()?.let { currentOnSeekCommit(it) }
     }
     val useMaterialYouControls = LocalUseMaterialYouControls.current
     DisposableEffect(key1 = useMaterialYouControls) {
@@ -119,40 +126,86 @@ internal fun PlayerSeekbar(
             if (isFocused && !it.isFocused) onValueChangeFinished()
             isFocused = it.isFocused
         }
-    // The sliders draw a 4-8dp track and only accept presses within Material's 48dp minimum
-    // interactive size, which is narrower than a fingertip. Presses in the extra height of
-    // [SEEKBAR_TOUCH_TARGET] are handled here instead of falling through to the gesture layer
-    // behind, which would read them as a tap on the video and close the controls.
     val density = LocalDensity.current
     val sliderOwnHalfHeightPx = with(density) { SLIDER_OWN_TOUCH_HEIGHT.toPx() / 2f }
+    val trackHalfHeightPx = with(density) { TRACK_HALF_HEIGHT.toPx() }
+    val cancelDistancePx = with(density) { SCRUB_CANCEL_DISTANCE.toPx() }
     val currentDuration by rememberUpdatedState(newValue = duration)
     val currentOnValueChange by rememberUpdatedState(newValue = onValueChange)
+    val displayedPosition = if (scrubState.isScrubbing) {
+        scrubState.scrubPositionMs.toFloat()
+    } else {
+        position
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(SEEKBAR_TOUCH_TARGET)
-            .pointerInput(Unit) {
+            .onGloballyPositioned { coordinates ->
+                scrubState.updateSeekbarBounds(coordinates.boundsInRoot())
+            }
+            .pointerInput(scrubState) {
                 awaitEachGesture {
                     val down = awaitFirstDown(
                         requireUnconsumed = false,
                         pass = PointerEventPass.Initial,
                     )
-                    val distanceFromCenter = abs(down.position.y - size.height / 2f)
-                    val trackValueRange = currentDuration.takeIf { it > 0f }
-                    if (trackValueRange == null || distanceFromCenter <= sliderOwnHalfHeightPx) {
-                        return@awaitEachGesture
+                    if (currentDuration <= 0f) return@awaitEachGesture
+                    // Presses in the padding around the slider are claimed here, since the
+                    // slider would otherwise let them reach the tap handler behind. Presses on
+                    // the slider itself stay with the slider, which drives onValueChange.
+                    val startsOnSlider =
+                        abs(down.position.y - size.height / 2f) <= sliderOwnHalfHeightPx
+                    if (!startsOnSlider) {
+                        down.consume()
+                        val fraction = (down.position.x / size.width).coerceIn(
+                            minimumValue = 0f,
+                            maximumValue = 1f,
+                        )
+                        currentOnValueChange(fraction * currentDuration)
                     }
-                    // Only the padding around the slider reaches this branch. Claiming the
-                    // gesture keeps it away from the tap handler behind, then jumps straight to
-                    // the pressed position the way the slider itself would.
-                    down.consume()
-                    val fraction = (down.position.x / size.width).coerceIn(
-                        minimumValue = 0f,
-                        maximumValue = 1f,
+                    // Cancel line is 20dp above the track, but never closer to the finger than
+                    // the press itself: a press that already lands in that band has still not
+                    // moved upwards.
+                    val trackTopY = size.height / 2f - trackHalfHeightPx
+                    val cancelLineY = minOf(
+                        trackTopY - cancelDistancePx,
+                        down.position.y - cancelDistancePx,
                     )
-                    currentOnValueChange(fraction * trackValueRange)
-                    onValueChangeFinished()
-                    waitForUpOrCancellation()
+                    var cancelled = false
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!startsOnSlider) {
+                            change.consume()
+                            if (!cancelled) {
+                                val fraction = (change.position.x / size.width).coerceIn(
+                                    minimumValue = 0f,
+                                    maximumValue = 1f,
+                                )
+                                currentOnValueChange(fraction * currentDuration)
+                            }
+                        }
+                        val aboveCancelLine = change.position.y < cancelLineY
+                        if (aboveCancelLine != cancelled) {
+                            cancelled = aboveCancelLine
+                            if (cancelled) {
+                                scrubState.cancel()
+                            } else {
+                                // The position jumped back to the playing position, so the next
+                                // chapter has to be measured from there.
+                                lastSeekChapterIndex = null
+                                scrubState.resume()
+                            }
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        }
+                        if (!change.pressed) {
+                            // The slider never saw this press, so it will not call
+                            // onValueChangeFinished for it either.
+                            if (!startsOnSlider) onValueChangeFinished()
+                            break
+                        }
+                    }
                 }
             },
         contentAlignment = Alignment.Center,
@@ -163,7 +216,8 @@ internal fun PlayerSeekbar(
                     modifier = focusModifier,
                     isFocused = isFocused,
                     chapters = chapters,
-                    value = position,
+                    abRepeat = abRepeat,
+                    value = displayedPosition,
                     valueRange = 0f..(duration.takeIf { it > 0 } ?: 0f),
                     onValueChange = onValueChange,
                     onValueChangeFinished = onValueChangeFinished,
@@ -173,7 +227,8 @@ internal fun PlayerSeekbar(
                     modifier = focusModifier,
                     isFocused = isFocused,
                     chapters = chapters,
-                    value = position,
+                    abRepeat = abRepeat,
+                    value = displayedPosition,
                     valueRange = 0f..(duration.takeIf { it > 0 } ?: 0f),
                     onValueChange = onValueChange,
                     onValueChangeFinished = onValueChangeFinished,
@@ -194,6 +249,7 @@ private fun MaterialYouSlider(
     onValueChangeFinished: () -> Unit,
     isFocused: Boolean = false,
     chapters: List<Chapter> = emptyList(),
+    abRepeat: AbRepeat? = null,
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val interactionSource = remember { MutableInteractionSource() }
@@ -223,6 +279,11 @@ private fun MaterialYouSlider(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(height = trackHeight)
+                    .abRepeatMarks(
+                        repeat = abRepeat,
+                        duration = sliderState.valueRange.endInclusive,
+                        color = primaryColor,
+                    )
                     .chapterGaps(
                         chapters = chapters,
                         valueRange.endInclusive,
@@ -373,6 +434,7 @@ private fun SimpleSlider(
     onValueChangeFinished: () -> Unit,
     isFocused: Boolean = false,
     chapters: List<Chapter> = emptyList(),
+    abRepeat: AbRepeat? = null,
 ) {
     val thumbSize by animateDpAsState(
         targetValue = if (isFocused) 22.dp else 16.dp,
@@ -411,6 +473,11 @@ private fun SimpleSlider(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)
+                    .abRepeatMarks(
+                        repeat = abRepeat,
+                        duration = valueRange.endInclusive,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                     .chapterGaps(
                         chapters = chapters,
                         valueRange.endInclusive,
@@ -458,3 +525,56 @@ private fun Modifier.chapterGaps(chapters: List<Chapter>, duration: Float): Modi
             ) { this@onDrawWithContent.drawContent() }
         }
     }
+
+@OptIn(UnstableApi::class)
+private fun Modifier.abRepeatMarks(repeat: AbRepeat?, duration: Float, color: Color): Modifier {
+    if (repeat == null || duration <= 0f) return this
+    return drawWithCache {
+        val startX = size.width * (repeat.startMs.toFloat() / duration).coerceIn(
+            0f,
+            1f,
+        )
+        val endX = size.width * (repeat.endMs.toFloat() / duration).coerceIn(
+            0f,
+            1f,
+        )
+        val strokeWidth = 2.dp.toPx()
+        val height = size.height
+        onDrawWithContent {
+            drawContent()
+            drawRect(
+                color = color.copy(alpha = 0.35f),
+                topLeft = Offset(
+                    x = startX,
+                    y = 0f,
+                ),
+                size = Size(
+                    width = endX - startX,
+                    height = height,
+                ),
+            )
+            drawRect(
+                color = color,
+                topLeft = Offset(
+                    x = startX,
+                    y = 0f,
+                ),
+                size = Size(
+                    width = strokeWidth,
+                    height = height,
+                ),
+            )
+            drawRect(
+                color = color,
+                topLeft = Offset(
+                    x = (endX - strokeWidth).coerceAtLeast(0f),
+                    y = 0f,
+                ),
+                size = Size(
+                    width = strokeWidth,
+                    height = height,
+                ),
+            )
+        }
+    }
+}

@@ -9,6 +9,7 @@ import androidx.media3.common.Player
 import androidx.media3.extractor.metadata.Chapter
 import com.nplayer.core.model.VideoContentScale
 import com.nplayer.feature.player.extensions.noRippleClickable
+import com.nplayer.feature.player.state.AbRepeatState
 import com.nplayer.feature.player.state.SubtitleOptionsEvent
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 
@@ -22,6 +23,7 @@ fun BoxScope.OverlayShowView(
     chapters: List<Chapter>,
     currentChapterIndex: Int,
     onChapterSelected: (Chapter) -> Unit,
+    abRepeatState: AbRepeatState,
     onDismiss: () -> Unit = {},
     onVideoDecoderModeSelected: (DecoderMode) -> Unit = {},
     onAudioDecoderModeSelected: (DecoderMode) -> Unit = {},
@@ -70,6 +72,11 @@ fun BoxScope.OverlayShowView(
         player = player,
     )
 
+    AbRepeatSelectorView(
+        show = overlayView == OverlayView.AB_REPEAT,
+        abRepeatState = abRepeatState,
+    )
+
     VideoContentScaleSelectorView(
         show = overlayView == OverlayView.VIDEO_CONTENT_SCALE,
         videoContentScale = videoContentScale,
@@ -101,4 +108,5 @@ enum class OverlayView {
     VIDEO_CONTENT_SCALE,
     PLAYLIST,
     CHAPTERS,
+    AB_REPEAT,
 }

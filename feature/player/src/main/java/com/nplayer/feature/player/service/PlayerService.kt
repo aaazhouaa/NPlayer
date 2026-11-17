@@ -26,6 +26,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.PlayerMessage
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.session.CommandButton
@@ -74,6 +75,7 @@ import com.nplayer.feature.player.extensions.uriToSubtitleConfiguration
 import com.nplayer.feature.player.extensions.videoDecoderMode
 import com.nplayer.feature.player.extensions.videoZoom
 import com.nplayer.feature.player.extensions.withExternalAudio
+import com.nplayer.feature.player.model.AbRepeat
 import com.nplayer.feature.player.model.DecoderTrackType
 import com.nplayer.feature.player.utils.hasApiPosition
 import com.nplayer.feature.player.utils.isExplicitPlaylistItem
@@ -129,6 +131,9 @@ class PlayerService : MediaSessionService() {
     private var pendingMediaItemsRequest:
         ListenableFuture<MediaSession.MediaItemsWithStartPosition>? = null
     private var pendingAudioSelection: Pair<String, Uri>? = null
+
+    private var abRepeat: AbRepeat? = null
+    private var abRepeatMessage: PlayerMessage? = null
 
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var currentVolumeGain: Int = 0
@@ -227,6 +232,7 @@ class PlayerService : MediaSessionService() {
                 tag = PLAYER_LOG_TAG,
                 message = "playing ${mediaItem?.mediaId} (transition reason=$reason)",
             )
+            applyAbRepeat(repeat = null)
             restoreDecoderChoices(mediaItem = mediaItem)
             isMediaItemReady = false
             loadArtworkForCurrentMediaItem()
@@ -788,6 +794,51 @@ class PlayerService : MediaSessionService() {
                     return@future SessionResult(SessionResult.RESULT_SUCCESS)
                 }
 
+                CustomCommands.SET_AB_REPEAT -> {
+                    val startMs = args.getLong(
+                        CustomCommands.AB_REPEAT_START_KEY,
+                        C.TIME_UNSET,
+                    )
+                    val endMs = args.getLong(
+                        CustomCommands.AB_REPEAT_END_KEY,
+                        C.TIME_UNSET,
+                    )
+                    if (startMs == C.TIME_UNSET || endMs == C.TIME_UNSET) {
+                        applyAbRepeat(repeat = null)
+                        return@future SessionResult(SessionResult.RESULT_SUCCESS)
+                    }
+                    val duration = session.player.duration
+                    if (startMs < 0 || endMs <= startMs ||
+                        (duration != C.TIME_UNSET && endMs > duration)
+                    ) {
+                        return@future SessionResult(SessionError.ERROR_BAD_VALUE)
+                    }
+                    applyAbRepeat(
+                        repeat = AbRepeat(
+                            startMs = startMs,
+                            endMs = endMs,
+                        ),
+                    )
+                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
+                }
+
+                CustomCommands.GET_AB_REPEAT -> {
+                    val repeat = abRepeat
+                    return@future SessionResult(
+                        SessionResult.RESULT_SUCCESS,
+                        Bundle().apply {
+                            putLong(
+                                CustomCommands.AB_REPEAT_START_KEY,
+                                repeat?.startMs ?: C.TIME_UNSET,
+                            )
+                            putLong(
+                                CustomCommands.AB_REPEAT_END_KEY,
+                                repeat?.endMs ?: C.TIME_UNSET,
+                            )
+                        },
+                    )
+                }
+
                 CustomCommands.GET_SUBTITLE_DELAY -> {
                     val subtitleDelay =
                         mediaSession?.player?.playerSpecificSubtitleDelayMilliseconds ?: 0
@@ -840,6 +891,21 @@ class PlayerService : MediaSessionService() {
                 }
             }
         }
+    }
+
+    private fun applyAbRepeat(repeat: AbRepeat?) {
+        abRepeat = repeat
+        abRepeatMessage?.cancel()
+        abRepeatMessage = null
+        val player = mediaSession?.player as? ExoPlayer ?: return
+        val current = repeat ?: return
+        // The message outlives delivery so each pass over the end point seeks back again.
+        abRepeatMessage = player.createMessage { _, _ ->
+            abRepeat?.let { player.seekTo(it.startMs) }
+        }
+            .setPosition(current.endMs)
+            .setDeleteAfterDelivery(false)
+            .send()
     }
 
     private suspend fun startBackgroundPlayback(

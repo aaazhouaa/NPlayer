@@ -34,14 +34,17 @@ import com.nplayer.feature.player.state.ControlsVisibilityState
 import com.nplayer.feature.player.state.SeekGestureState
 import com.nplayer.feature.player.state.TapGestureState
 import com.nplayer.feature.player.state.VideoZoomAndContentScaleState
+import com.nplayer.feature.player.state.rememberAbRepeatState
 import com.nplayer.feature.player.state.rememberChaptersState
 import com.nplayer.feature.player.state.rememberMediaPresentationState
 import com.nplayer.feature.player.state.rememberMetadataState
 import com.nplayer.feature.player.state.rememberPlayerKeyInputState
+import com.nplayer.feature.player.state.rememberPlayerScrubState
 import com.nplayer.feature.player.ui.DpadSeekIndicator
 import com.nplayer.feature.player.ui.OverlayShowView
 import com.nplayer.feature.player.ui.OverlayView
 import com.nplayer.feature.player.ui.PlayerGestureIndicators
+import com.nplayer.feature.player.ui.controls.ScrubPreviewOverlay
 import kotlin.time.Duration.Companion.seconds
 
 /** Controls and overlays shared by live playback and the previewable content. */
@@ -64,10 +67,12 @@ internal fun MediaPlayerControls(
     val metadataState = rememberMetadataState(player = player)
     val mediaPresentationState = rememberMediaPresentationState(player = player)
     val progressState = rememberProgressStateWithTickInterval(player = player)
+    val scrubState = rememberPlayerScrubState(player = player)
     val chaptersState = rememberChaptersState(
         player = player,
         progressState = progressState,
     )
+    val abRepeatState = rememberAbRepeatState(player = player)
     val keyInputState = rememberPlayerKeyInputState(
         player = player,
         controls = controlsVisibilityState,
@@ -168,6 +173,8 @@ internal fun MediaPlayerControls(
                     videoZoomAndContentScaleState = videoZoomAndContentScaleState,
                     progressState = progressState,
                     chaptersState = chaptersState,
+                    scrubState = scrubState,
+                    abRepeatState = abRepeatState,
                     isPipSupported = isPipSupported,
                     onShowOverlay = ::showOverlay,
                     onBackClick = { onAction(PlayerAction.NavigateUp) },
@@ -181,11 +188,18 @@ internal fun MediaPlayerControls(
                 )
             }
 
+            ScrubPreviewOverlay(
+                scrubState = scrubState,
+                durationMs = progressState.durationMs,
+                modifier = Modifier.align(Alignment.TopStart),
+            )
+
             OverlayShowView(
                 player = player,
                 overlayView = overlayView,
                 chapters = chaptersState.chapters,
                 currentChapterIndex = chaptersState.currentChapterIndex,
+                abRepeatState = abRepeatState,
                 onChapterSelected = { chapter ->
                     if (player.isCurrentMediaItemSeekable) {
                         player.seekTo(chapter.startTimeMs)

@@ -18,8 +18,10 @@ import androidx.media3.ui.compose.state.ProgressStateWithTickInterval
 import com.nplayer.core.model.ControlButtonsPosition
 import com.nplayer.core.model.PlayerPreferences
 import com.nplayer.feature.player.extensions.nameRes
+import com.nplayer.feature.player.state.AbRepeatState
 import com.nplayer.feature.player.state.ChaptersState
 import com.nplayer.feature.player.state.ControlsVisibilityState
+import com.nplayer.feature.player.state.PlayerScrubState
 import com.nplayer.feature.player.state.SeekGestureState
 import com.nplayer.feature.player.state.VideoZoomAndContentScaleState
 import com.nplayer.feature.player.state.seekAmountFormatted
@@ -43,6 +45,8 @@ fun PlayerControls(
     videoZoomAndContentScaleState: VideoZoomAndContentScaleState,
     progressState: ProgressStateWithTickInterval,
     chaptersState: ChaptersState,
+    scrubState: PlayerScrubState,
+    abRepeatState: AbRepeatState,
     isPipSupported: Boolean,
     onShowOverlay: (OverlayView) -> Unit,
     onBackClick: () -> Unit,
@@ -84,6 +88,8 @@ fun PlayerControls(
                     player = player,
                     progressState = progressState,
                     chaptersState = chaptersState,
+                    scrubState = scrubState,
+                    abRepeatState = abRepeatState,
                     onChaptersClick = { onShowOverlay(OverlayView.CHAPTERS) },
                     controlsAlignment = when (playerPreferences.controlButtonsPosition) {
                         ControlButtonsPosition.LEFT -> Alignment.Start
@@ -93,9 +99,9 @@ fun PlayerControls(
                     isPipSupported = isPipSupported,
                     showRemainingTime = playerPreferences.showRemainingTime,
                     onToggleTimeDisplay = onToggleTimeDisplay,
-                    onSeek = seekGestureState::onSeek,
-                    onSeekEnd = seekGestureState::onSeekEnd,
+                    onSeekCommit = { position -> player?.seekTo(position) },
                     onPlaybackSpeedClick = { onShowOverlay(OverlayView.PLAYBACK_SPEED) },
+                    onAbRepeatLongClick = { onShowOverlay(OverlayView.AB_REPEAT) },
                     onPlayInBackgroundClick = onPlayInBackgroundClick,
                     onLockControlsClick = {
                         controlsVisibilityState.showControls()

@@ -2,9 +2,11 @@ package com.nplayer.feature.player.service
 
 import android.net.Uri
 import android.os.Bundle
+import androidx.media3.common.C
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import com.nplayer.feature.player.model.AbRepeat
 import com.nplayer.feature.player.model.DecoderRecoveryState
 import com.nplayer.feature.player.model.DecoderRecoveryStatus
 import com.nplayer.feature.player.model.DecoderServiceState
@@ -30,6 +32,8 @@ enum class CustomCommands(val customAction: String) {
     SET_VIDEO_DECODER_MODE(customAction = "SET_VIDEO_DECODER_MODE"),
     SET_AUDIO_DECODER_MODE(customAction = "SET_AUDIO_DECODER_MODE"),
     TRY_DECODER_FALLBACK(customAction = "TRY_DECODER_FALLBACK"),
+    GET_AB_REPEAT(customAction = "GET_AB_REPEAT"),
+    SET_AB_REPEAT(customAction = "SET_AB_REPEAT"),
     ;
 
     val sessionCommand = SessionCommand(
@@ -63,6 +67,8 @@ enum class CustomCommands(val customAction: String) {
         const val DECODER_RECOVERY_STATUS_KEY = "decoder_recovery_status"
         const val DECODER_RECOVERY_TRACK_TYPE_KEY = "decoder_recovery_track_type"
         const val UNSUPPORTED_DECODER_MODE_KEY = "unsupported_decoder_mode"
+        const val AB_REPEAT_START_KEY = "ab_repeat_start_ms"
+        const val AB_REPEAT_END_KEY = "ab_repeat_end_ms"
     }
 }
 
@@ -277,4 +283,41 @@ suspend fun MediaController.tryDecoderFallback(): Boolean {
 internal fun Bundle.decoderMode(key: String): DecoderMode? {
     val value = getString(key) ?: return null
     return DecoderMode.entries.find { it.name == value }
+}
+
+fun MediaController.setAbRepeat(repeat: AbRepeat?) {
+    val args = Bundle().apply {
+        putLong(
+            CustomCommands.AB_REPEAT_START_KEY,
+            repeat?.startMs ?: C.TIME_UNSET,
+        )
+        putLong(
+            CustomCommands.AB_REPEAT_END_KEY,
+            repeat?.endMs ?: C.TIME_UNSET,
+        )
+    }
+    sendCustomCommand(
+        CustomCommands.SET_AB_REPEAT.sessionCommand,
+        args,
+    )
+}
+
+suspend fun MediaController.getAbRepeat(): AbRepeat? {
+    val extras = sendCustomCommand(
+        CustomCommands.GET_AB_REPEAT.sessionCommand,
+        Bundle.EMPTY,
+    ).await().extras
+    val startMs = extras.getLong(
+        CustomCommands.AB_REPEAT_START_KEY,
+        C.TIME_UNSET,
+    )
+    val endMs = extras.getLong(
+        CustomCommands.AB_REPEAT_END_KEY,
+        C.TIME_UNSET,
+    )
+    if (startMs == C.TIME_UNSET || endMs == C.TIME_UNSET) return null
+    return AbRepeat(
+        startMs = startMs,
+        endMs = endMs,
+    )
 }
