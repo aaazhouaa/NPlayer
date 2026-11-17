@@ -248,12 +248,6 @@
     <string name="seek_gesture_sensitivity">シークジェスチャーの感度</string>
     <string name="shuffle_on">シャッフルオン</string>
     <string name="shuffle_off">シャッフルオフ</string>
-    <string name="crash_screen_title">おっと</string>
-    <string name="crash_screen_subtitle">%s で予期せぬエラーが発生したようです。クラッシュログを GitHub の Issue で共有することを検討してください。</string>
-    <string name="crash_screen_logs_title">クラッシュログ:</string>
-    <string name="crash_screen_share">クラッシュログを共有</string>
-    <string name="crash_screen_restart">アプリを再起動</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="general_name">一般</string>
     <string name="general_description">ユーザーデータの設定</string>
     <string name="user_data">ユーザーデータ</string>

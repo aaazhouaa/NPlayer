@@ -233,12 +233,6 @@
     <string name="reset_default_playback_speed">Resetovat výchozí rychlost přehrávání</string>
     <string name="shuffle_on">Náhodné přehrávání zapnuto</string>
     <string name="shuffle_off">Náhodné přehrávání vypnuto</string>
-    <string name="crash_screen_title">Jejda</string>
-    <string name="crash_screen_subtitle">Vypadá, že %s havaroval kvůli neočekávané chybě. Zaváhejte sdílením chybových protokolů ve GitHub issue.</string>
-    <string name="crash_screen_logs_title">Chybové protokoly:</string>
-    <string name="crash_screen_share">Sdílet chybové protokoly</string>
-    <string name="crash_screen_restart">Restartovat aplikaci</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="general_name">Obecné</string>
     <string name="general_description">Možnosti uživatelských dat</string>
     <string name="user_data">Uživatelské data</string>

@@ -253,12 +253,6 @@
     <string name="reset_brightness_gesture_sensitivity">Parlaklık hareketi hassasiyetini sıfırla</string>
     <string name="shuffle_on">Karıştırma açık</string>
     <string name="shuffle_off">Karıştırma kapalı</string>
-    <string name="crash_screen_title">Oops</string>
-    <string name="crash_screen_subtitle">Görünüşe göre %s beklenmedik bir hatayla karşılaştı. Hata günlüklerini GitHub\'ta bir sorun olarak paylaşmayı düşünün.</string>
-    <string name="crash_screen_logs_title">Çökme kayıtları:</string>
-    <string name="crash_screen_share">Çökme kayıtlarını paylaş</string>
-    <string name="crash_screen_restart">Uygulamayı yeniden başlat</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="general_name">Genel</string>
     <string name="general_description">Kullanıcı veri seçenekleri</string>
     <string name="user_data">Kullanıcı verileri</string>

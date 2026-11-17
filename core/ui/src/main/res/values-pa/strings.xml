@@ -255,12 +255,6 @@
     <string name="reset_brightness_gesture_sensitivity">ਚਮਕ ਸੰਕੇਤ ਸੰਵੇਦਨਸ਼ੀਲਤਾ ਰੀਸੈਟ ਕਰੋ</string>
     <string name="shuffle_on">ਸ਼ਫਲ ਚਾਲੂ</string>
     <string name="shuffle_off">ਸ਼ਫਲ ਬੰਦ</string>
-    <string name="crash_screen_title">ਓਹ</string>
-    <string name="crash_screen_subtitle">ਲੱਗਦਾ ਹੈ ਕਿ %s ਵਿੱਚ ਕੋਈ ਅਣਕਿਆਸੀ ਤਰੁੱਟੀ ਆਈ ਹੈ। GitHub ਮੁੱਦੇ ਵਿੱਚ ਕਰੈਸ਼ ਲੌਗ ਸਾਂਝੇ ਕਰਨ ਬਾਰੇ ਵਿਚਾਰ ਕਰੋ।</string>
-    <string name="crash_screen_logs_title">ਕਰੈਸ਼ ਲੌਗ:</string>
-    <string name="crash_screen_share">ਕ੍ਰੈਸ਼ ਲੌਗ ਸਾਂਝੇ ਕਰੋ</string>
-    <string name="crash_screen_restart">ਐਪ ਨੂੰ ਰੀਸਟਾਰਟ ਕਰੋ</string>
-    <string name="crash_screen_logcat">ਲੌਗਕੈਟ:</string>
     <string name="general_name">ਜਨਰਲ</string>
     <string name="general_description">ਉਪਭੋਗਤਾ ਡੇਟਾ ਵਿਕਲਪ</string>
     <string name="user_data">ਉਪਭੋਗਤਾ ਡੇਟਾ</string>

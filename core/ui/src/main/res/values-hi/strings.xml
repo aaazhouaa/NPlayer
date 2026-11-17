@@ -255,12 +255,6 @@
     <string name="reset_brightness_gesture_sensitivity">चमक जेस्चर संवेदनशीलता रीसेट करें</string>
     <string name="shuffle_on">शफ़ल ऑन</string>
     <string name="shuffle_off">शफ़ल ऑफ़</string>
-    <string name="crash_screen_title">ओह</string>
-    <string name="crash_screen_subtitle">लगता है %s में कोई अनचाही त्रुटि आई है। GitHub इश्यू में क्रैश लॉग शेयर करने के बारे में सोचें।</string>
-    <string name="crash_screen_logs_title">क्रैश लॉग:</string>
-    <string name="crash_screen_share">क्रैश लॉग साझा करें</string>
-    <string name="crash_screen_restart">ऐप को पुनः आरंभ करें</string>
-    <string name="crash_screen_logcat">लॉगकैट:</string>
     <string name="general_name">सामान्य</string>
     <string name="general_description">उपयोगकर्ता डेटा विकल्प</string>
     <string name="user_data">उपयोगकर्ता का डेटा</string>

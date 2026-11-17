@@ -275,11 +275,6 @@
     <string name="reset_brightness_gesture_sensitivity">Ripristina la sensibilità dei gesti luminosità</string>
     <string name="shuffle_on">Casuale attivo</string>
     <string name="shuffle_off">Casuale disattivato</string>
-    <string name="crash_screen_title">Oops</string>
-    <string name="crash_screen_subtitle">Sembra che %s abbia riscontrato un errore inaspettato. Valuta la condivisione dei crash logs su GitHub.</string>
-    <string name="crash_screen_logs_title">Log dei crash:</string>
-    <string name="crash_screen_share">Condividi crash logs</string>
-    <string name="crash_screen_restart">Riavvia applicazione</string>
     <string name="general_name">Generale</string>
     <string name="general_description">Opzioni dati utente</string>
     <string name="user_data">Dati utente</string>
@@ -306,7 +301,6 @@
     <string name="video_decoder_mode_not_supported">%1$s ilbdecoder video non è supportato</string>
     <string name="audio_decoder_mode_not_supported">%1$s il decoder audio non è supportato</string>
     <string name="github_sponsors">Sponsor GitHub</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="delete_thumbnail_cache_description">Elimina tutte le miniature memorizzate nella cache. Le miniature verranno generate nuovamente all\'apertura dell\'elenco dei contenuti multimediali</string>
     <string name="delete_thumbnail_cache_confirmation">Sei sicuro di voler eliminare tutte le miniature?</string>
     <string name="reset_settings">Resetta impostazioni</string>

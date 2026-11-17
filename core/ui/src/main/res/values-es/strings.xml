@@ -254,12 +254,6 @@
     <string name="reset_brightness_gesture_sensitivity">Reiniciar la sensibilidad del gesto de brillo</string>
     <string name="shuffle_on">Aleatorio encendido</string>
     <string name="shuffle_off">Aleatorio apagado</string>
-    <string name="crash_screen_title">Uups</string>
-    <string name="crash_screen_subtitle">Parece que %s experimentó un error inesperado. Considere compartir los registros de fallos en las incidencias de GitHub.</string>
-    <string name="crash_screen_logs_title">Registro de errores:</string>
-    <string name="crash_screen_share">Compartir registro de errores</string>
-    <string name="crash_screen_restart">Reiniciar la aplicación</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="general_name">General</string>
     <string name="general_description">Opciones de datos de usuario</string>
     <string name="user_data">Datos de usuario</string>

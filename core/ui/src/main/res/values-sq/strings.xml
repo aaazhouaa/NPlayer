@@ -253,12 +253,6 @@
     <string name="reset_brightness_gesture_sensitivity">Rivendos ndjeshmërinë e gjestit të ndriçimit</string>
     <string name="shuffle_on">Trazimi aktiv</string>
     <string name="shuffle_off">Trazimi joaktiv</string>
-    <string name="crash_screen_title">Ups</string>
-    <string name="crash_screen_subtitle">Duket se %s hasi në gabim të papritur. Konsidero ndarjen e regjistrave të rrëzimit në një çështje GitHub.</string>
-    <string name="crash_screen_logs_title">Regjistrat e rrëzimit:</string>
-    <string name="crash_screen_share">Ndaj regjistrat e rrëzimit</string>
-    <string name="crash_screen_restart">Rinis aplikacionin</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="general_name">Të përgjithshme</string>
     <string name="general_description">Opsionet e të dhënave të përdoruesit</string>
     <string name="user_data">Të dhënat e përdoruesit</string>

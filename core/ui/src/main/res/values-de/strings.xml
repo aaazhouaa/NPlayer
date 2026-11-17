@@ -278,10 +278,6 @@
     <string name="pan_gesture">Geste zum Schwenken</string>
     <string name="shuffle_on">Zufallswiedergabe an</string>
     <string name="shuffle_off">Zufallswiedergabe aus</string>
-    <string name="crash_screen_subtitle">Ein unerwarteter Fehler: %s ist aufgetreten. Bitte teilen Sie Ihren Fehlerbericht in einem Github Issue.</string>
-    <string name="crash_screen_logs_title">Absturzbericht:</string>
-    <string name="crash_screen_share">Teile Absturzbericht</string>
-    <string name="crash_screen_restart">App neustarten</string>
     <string name="general_name">Allgemein</string>
     <string name="general_description">Nutzerdatenoptionen</string>
     <string name="user_data">Nutzerdaten</string>
@@ -313,7 +309,6 @@
     <string name="reset_volume_gesture_sensitivity">Volumengesten-Empfindlichkeit zurücksetzen</string>
     <string name="brightness_gesture_sensitivity">Helligkeitsgesten-Empfindlichkeit</string>
     <string name="reset_brightness_gesture_sensitivity">Helligkeitsgesten-Empfindlichkeit zurücksetzen</string>
-    <string name="crash_screen_title">Entschuldigung</string>
     <string name="turn_off_watch_history_confirmation">Wenn du den Wiedergabeverlauf deaktivierst, wird dein Wiedergabeverlauf gelöscht und die von dir angesehenen Videos werden nicht mehr aufgezeichnet.</string>
     <string name="turn_on_watch_history_confirmation">Angesehene Videos im Wiedergabeverlauf speichern?</string>
     <string name="watch_history_turned_off">Wiedergabeverlauf ist deaktiviert</string>
@@ -528,7 +523,6 @@
         <item quantity="one">%1$d Tag</item>
         <item quantity="other">%1$d Tage</item>
     </plurals>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="hybrid">Hybrid (smart)</string>
     <string name="vault">Vault</string>
     <string name="home">Home</string>

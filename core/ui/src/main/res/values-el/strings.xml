@@ -245,12 +245,6 @@
     <string name="reset_default_playback_speed">Επαναφορά προεπιλεγμένης ταχύτητας αναπαραγωγής</string>
     <string name="shuffle_on">Τυχαία αναπαραγωγή ενεργή</string>
     <string name="shuffle_off">Τυχαία αναπαραγωγή ανενεργή</string>
-    <string name="crash_screen_title">Ωχ</string>
-    <string name="crash_screen_subtitle">Φαίνεται ότι το %s αντιμετώπισε ένα μη αναμενόμενο σφάλμα. Σκεφτείτε το ενδεχόμενο να κοινοποιήσετε τα αρχεία καταγραφής σφαλμάτων στο GitHub.</string>
-    <string name="crash_screen_logs_title">Αρχείο σφάλματος:</string>
-    <string name="crash_screen_share">Κοινοποίηση αρχείου σφάλματος</string>
-    <string name="crash_screen_restart">Επανεκκίνηση εφαρμογής</string>
-    <string name="crash_screen_logcat">Καταγραφή:</string>
     <string name="gestures">Χειρονομίες</string>
     <string name="general_name">Γενικά</string>
     <string name="general_description">Επιλογές δεδομένων χρήστη</string>

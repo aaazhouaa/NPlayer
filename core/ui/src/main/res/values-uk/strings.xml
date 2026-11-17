@@ -246,12 +246,6 @@
     <string name="reset_default_playback_speed">Скинути до типової швидкість відтворення</string>
     <string name="shuffle_on">Перемішування ввімкнено</string>
     <string name="shuffle_off">Перемішування вимкнено</string>
-    <string name="crash_screen_title">Йойки</string>
-    <string name="crash_screen_subtitle">Схоже, що в %s сталася неочікувана помилка. Розгляньте можливість поділитися журналами збою у GitHub issue.</string>
-    <string name="crash_screen_logs_title">Журнали збою:</string>
-    <string name="crash_screen_share">Поділитися журналами збою</string>
-    <string name="crash_screen_restart">Перезапустити застосунок</string>
-    <string name="crash_screen_logcat">Журнал:</string>
     <string name="general_name">Загальні</string>
     <string name="general_description">Параметри даних користувача</string>
     <string name="user_data">Дані користувача</string>

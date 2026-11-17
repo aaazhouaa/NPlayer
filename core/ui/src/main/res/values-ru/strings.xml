@@ -246,12 +246,6 @@
     <string name="reset_default_playback_speed">Сбросить скорость по умолчанию</string>
     <string name="shuffle_on">Перемешивание включено</string>
     <string name="shuffle_off">Перемешивание выключено</string>
-    <string name="crash_screen_title">Ой</string>
-    <string name="crash_screen_subtitle">Похоже, в %s произошла непредвиденная ошибка. Пожалуйста, поделитесь логами сбоя в GitHub issue.</string>
-    <string name="crash_screen_logs_title">Логи сбоя:</string>
-    <string name="crash_screen_share">Поделиться логами сбоя</string>
-    <string name="crash_screen_logcat">Журнал Logcat:</string>
-    <string name="crash_screen_restart">Перезапустить приложение</string>
     <string name="delete_thumbnail_cache">Удалить кэш миниатюр</string>
     <string name="delete_thumbnail_cache_description">Удалите все миниатюры, кэшированные в хранилище. Миниатюры будут созданы снова при открытии списка мультимедиа</string>
     <string name="delete_thumbnail_cache_confirmation">Вы уверены, что хотите удалить все миниатюры?</string>

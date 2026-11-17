@@ -243,12 +243,6 @@
     <string name="reset_default_playback_speed">Réinitialiser la vitesse de lecture par défaut</string>
     <string name="shuffle_on">Aléatoire activé</string>
     <string name="shuffle_off">Aléatoire désactivé</string>
-    <string name="crash_screen_title">Oups</string>
-    <string name="crash_screen_subtitle">On dirait que %s a rencontré une erreur inattendue. Pensez à partager les journaux d\'erreur sur la page GitHub.</string>
-    <string name="crash_screen_logs_title">Journaux d\'erreur :</string>
-    <string name="crash_screen_share">Partager les journaux d\'erreur</string>
-    <string name="crash_screen_restart">Redémarrer l\'application</string>
-    <string name="crash_screen_logcat">Logcat :</string>
     <string name="general_name">Général</string>
     <string name="general_description">Paramètres de données utilisateur</string>
     <string name="user_data">Données utilisateur</string>

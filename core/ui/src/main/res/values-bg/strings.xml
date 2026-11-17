@@ -246,12 +246,6 @@
     <string name="reset_default_playback_speed">Нулиране на скоростта на възпроизвеждане по подразбиране</string>
     <string name="shuffle_on">Разбъркването е включено</string>
     <string name="shuffle_off">Разбърканото е изключено</string>
-    <string name="crash_screen_title">Опа</string>
-    <string name="crash_screen_subtitle">Изглежда, че %s е претърпял неочаквана грешка. Помислете за споделяне на регистрационните файлове за сривове в проблем в GitHub.</string>
-    <string name="crash_screen_logs_title">Журнали за сривове:</string>
-    <string name="crash_screen_share">Споделяне на журнали за сривове</string>
-    <string name="crash_screen_restart">Рестартирайте приложението</string>
-    <string name="crash_screen_logcat">Логкат:</string>
     <string name="general_name">Общи</string>
     <string name="general_description">Опции за потребителски данни</string>
     <string name="user_data">Потребителски данни</string>

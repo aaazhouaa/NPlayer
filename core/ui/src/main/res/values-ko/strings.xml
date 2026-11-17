@@ -255,12 +255,6 @@
     <string name="reset_brightness_gesture_sensitivity">밝기 제스처 감도 초기화</string>
     <string name="shuffle_on">셔플 켜짐</string>
     <string name="shuffle_off">셔플 꺼짐</string>
-    <string name="crash_screen_title">앗!</string>
-    <string name="crash_screen_subtitle">%s에서 예기치 않은 오류가 발생했습니다. GitHub 이슈에 충돌 로그를 공유해 주세요.</string>
-    <string name="crash_screen_logs_title">충돌 로그:</string>
-    <string name="crash_screen_share">충돌 로그 공유</string>
-    <string name="crash_screen_restart">앱 다시 시작</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="general_name">일반</string>
     <string name="general_description">사용자 데이터 옵션</string>
     <string name="user_data">사용자 데이터</string>

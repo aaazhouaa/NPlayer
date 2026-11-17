@@ -286,12 +286,6 @@
     <string name="reset_brightness_gesture_sensitivity">Atur ulang sensitivitas gestur kecerahan</string>
     <string name="shuffle_on">Acak aktif</string>
     <string name="shuffle_off">Acak nonaktif</string>
-    <string name="crash_screen_title">Ups</string>
-    <string name="crash_screen_subtitle">Sepertinya %s mengalami galat tak terduga. Pertimbangkan untuk membagikan log kerusakan dalam isu GitHub.</string>
-    <string name="crash_screen_logs_title">Log kerusakan:</string>
-    <string name="crash_screen_share">Bagikan log kerusakan</string>
-    <string name="crash_screen_restart">Mulai ulang aplikasi</string>
-    <string name="crash_screen_logcat">Logcat:</string>
     <string name="general_name">Umum</string>
     <string name="general_description">Opsi data pengguna</string>
     <string name="user_data">Data pengguna</string>
