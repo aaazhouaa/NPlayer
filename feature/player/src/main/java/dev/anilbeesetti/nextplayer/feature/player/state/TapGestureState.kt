@@ -50,7 +50,7 @@ class TapGestureState(
     private val seekIncrementMillis: Long,
     private val useLongPressGesture: Boolean = true,
     private val coroutineScope: CoroutineScope,
-    val longPressSpeed: Float = 2.0f,
+    val longPressSpeed: Float = 5.0f,
     val doubleTapGesture: DoubleTapGesture,
     val interactionSource: MutableInteractionSource = MutableInteractionSource(),
 ) {

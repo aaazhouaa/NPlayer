@@ -30,8 +30,8 @@ data class PlayerPreferences(
     val useZoomControls: Boolean = true,
     val enablePanGesture: Boolean = false,
     val doubleTapGesture: DoubleTapGesture = DoubleTapGesture.BOTH,
-    val useLongPressControls: Boolean = false,
-    val longPressControlsSpeed: Float = 2.0f,
+    val useLongPressControls: Boolean = true,
+    val longPressControlsSpeed: Float = 5.0f,
     val seekIncrement: Int = DEFAULT_SEEK_INCREMENT,
     val seekSensitivity: Float = DEFAULT_SEEK_SENSITIVITY,
     val volumeGestureSensitivity: Float = DEFAULT_VOLUME_GESTURE_SENSITIVITY,
@@ -66,7 +66,7 @@ data class PlayerPreferences(
 
     companion object {
         const val DEFAULT_SEEK_INCREMENT = 10
-        const val DEFAULT_SEEK_SENSITIVITY = 0.50f
+        const val DEFAULT_SEEK_SENSITIVITY = 2.00f
         const val DEFAULT_VOLUME_GESTURE_SENSITIVITY = 0.50f
         const val DEFAULT_BRIGHTNESS_GESTURE_SENSITIVITY = 0.50f
         const val DEFAULT_SUBTITLE_TEXT_SIZE = 20
