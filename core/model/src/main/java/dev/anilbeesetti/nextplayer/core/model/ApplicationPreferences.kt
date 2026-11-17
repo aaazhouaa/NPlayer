@@ -17,20 +17,20 @@ data class ApplicationPreferences(
     val scanFolders: List<String> = emptyList(),
     val respectNoMedia: Boolean = false,
     val mediaViewMode: MediaViewMode = MediaViewMode.FOLDERS,
-    val mediaLayoutMode: MediaLayoutMode = MediaLayoutMode.LIST,
+    val mediaLayoutMode: MediaLayoutMode = MediaLayoutMode.GRID,
 
     // Network browser
     val networkSortBy: Sort.By = Sort.By.TITLE,
     val networkSortOrder: Sort.Order = Sort.Order.ASCENDING,
-    val networkMediaLayoutMode: MediaLayoutMode = MediaLayoutMode.LIST,
+    val networkMediaLayoutMode: MediaLayoutMode = MediaLayoutMode.GRID,
 
     // Fields
     val showDurationField: Boolean = true,
     val showFolderDurationField: Boolean = true,
     val showExtensionField: Boolean = false,
     val showPathField: Boolean = true,
-    val showResolutionField: Boolean = false,
-    val showSizeField: Boolean = false,
+    val showResolutionField: Boolean = true,
+    val showSizeField: Boolean = true,
     val showThumbnailField: Boolean = true,
     val showPlayedProgress: Boolean = true,
 

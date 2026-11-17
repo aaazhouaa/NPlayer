@@ -64,7 +64,7 @@ class VaultScreenTest {
         assertEquals(
             listOf(
                 VaultAction.UpdateQuickSettings(
-                    MediaLayoutMode.LIST,
+                    MediaLayoutMode.GRID,
                     sort = Sort(
                         Sort.By.TITLE,
                         Sort.Order.ASCENDING,
