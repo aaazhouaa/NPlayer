@@ -2,6 +2,7 @@ package dev.anilbeesetti.nextplayer.core.domain
 
 import dev.anilbeesetti.nextplayer.core.common.di.DiQualifiers
 import dev.anilbeesetti.nextplayer.core.common.extensions.prettyName
+import dev.anilbeesetti.nextplayer.core.common.extensions.volumeRootOf
 import dev.anilbeesetti.nextplayer.core.data.repository.MediaRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.PreferencesRepository
 import dev.anilbeesetti.nextplayer.core.model.Folder
@@ -189,11 +190,6 @@ class GetFolderTreeMediaUseCase(
         return videos.filter { it.path.startsWith(prefix = prefix) }
     }
 
-    /**
-     * Infers the storage-volume root that contains [path] from its canonical MediaStore path:
-     * "/storage/emulated/<user>" for emulated (internal) storage, or "/storage/<volume>" for
-     * removable volumes (SD card / USB OTG). Returns null for unrecognised layouts.
-     */
     private fun volumeRootOf(path: String): String? {
         val parts = path.split('/').filter { it.isNotEmpty() }
         return when {

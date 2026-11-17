@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -47,6 +46,7 @@ import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import dev.anilbeesetti.nextplayer.core.common.extensions.readablePath
 import dev.anilbeesetti.nextplayer.core.model.ApplicationPreferences
 import dev.anilbeesetti.nextplayer.core.model.MediaLayoutMode
 import dev.anilbeesetti.nextplayer.core.model.Video
@@ -62,6 +62,9 @@ import kotlinx.coroutines.delay
 private val HeadingLineBreak: LineBreak = LineBreak.Heading.copy(
     strategy = LineBreak.Strategy.Simple,
 )
+
+/** Paths only break after `/`, so use the fast greedy strategy. */
+private val PathLineBreak: LineBreak = LineBreak.Simple
 
 @Composable
 fun VideoItem(
@@ -189,7 +192,7 @@ fun VideoGridItem(
     onLongClick: (() -> Unit)? = null,
 ) {
     NextSegmentedListItem(
-        modifier = modifier.width(IntrinsicSize.Min),
+        modifier = modifier.fillMaxWidth(),
         selected = selected,
         contentPadding = PaddingValues(8.dp),
         colors = ListItemDefaults.segmentedColors(
@@ -225,10 +228,11 @@ fun VideoGridItem(
                     } else {
                         video.displayName
                     },
+                    modifier = Modifier.fillMaxWidth(),
                     maxLines = 2,
                     style = textStyle.copy(lineBreak = HeadingLineBreak),
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
+                    textAlign = TextAlign.Start,
                     color = if (isRecentlyPlayedVideo && preferences.markLastPlayedMedia) {
                         MaterialTheme.colorScheme.primary
                     } else {
@@ -253,7 +257,7 @@ private fun VideoSupportingFields(
     preferences: ApplicationPreferences,
     modifier: Modifier = Modifier,
 ) {
-    val path = video.path.substringBeforeLast(delimiter = "/")
+    val path = video.path.substringBeforeLast(delimiter = "/").readablePath
     val showPath = preferences.showPathField && path.isNotBlank()
     val showSize =
         preferences.showSizeField && video.size > 0 && video.formattedFileSize.isNotBlank() &&
@@ -272,9 +276,11 @@ private fun VideoSupportingFields(
         if (showPath) {
             Text(
                 text = path,
+                modifier = Modifier.fillMaxWidth(),
                 maxLines = 2,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.copy(lineBreak = PathLineBreak),
                 overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
             )
         }
         if (showSize || showResolution) {

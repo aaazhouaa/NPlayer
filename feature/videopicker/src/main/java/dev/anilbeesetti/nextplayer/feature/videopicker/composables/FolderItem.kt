@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import dev.anilbeesetti.nextplayer.core.common.Utils
+import dev.anilbeesetti.nextplayer.core.common.extensions.readablePath
 import dev.anilbeesetti.nextplayer.core.model.ApplicationPreferences
 import dev.anilbeesetti.nextplayer.core.model.Folder
 import dev.anilbeesetti.nextplayer.core.model.MediaLayoutMode
@@ -178,7 +179,7 @@ private fun FolderListItem(
             ) {
                 if (preferences.showPathField) {
                     Text(
-                        text = folder.path.substringBeforeLast(delimiter = "/"),
+                        text = folder.path.substringBeforeLast(delimiter = "/").readablePath,
                         maxLines = 2,
                         style = MaterialTheme.typography.bodySmall,
                         overflow = TextOverflow.Ellipsis,

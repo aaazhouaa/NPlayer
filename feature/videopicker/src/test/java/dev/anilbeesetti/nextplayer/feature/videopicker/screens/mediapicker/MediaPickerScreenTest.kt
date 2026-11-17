@@ -239,7 +239,7 @@ class MediaPickerScreenTest {
         // thumbnail's bottom-left corner, and the path stays in the supporting fields.
         composeRule.onNodeWithText(text = "1080p").assertIsDisplayed()
         composeRule.onNodeWithText(text = "320KB").assertIsDisplayed()
-        composeRule.onNodeWithText(text = "/storage/emulated/0/Download").assertIsDisplayed()
+        composeRule.onNodeWithText(text = "Download").assertIsDisplayed()
     }
 
     @Test
