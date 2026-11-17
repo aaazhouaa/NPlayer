@@ -12,10 +12,25 @@ internal data class FileVideoMetadata(val duration: Long, val width: Int, val he
  * Reads duration and resolution from this file, or null when the container cannot be parsed.
  *
  * MediaStore has no row for files it never indexes (dot-prefixed names, dot directories,
- * directories with a `.nomedia` marker), so its DURATION/WIDTH/HEIGHT columns are
- * unavailable and the values have to be parsed from the container itself.
+ * directories with a `.nomedia` marker), so its DURATION/WIDTH/HEIGHT columns are unavailable
+ * and the values have to be parsed from the file itself.
+ *
+ * The container's index is read directly first, which costs about a millisecond. A platform
+ * retriever is only opened for the formats that have no cheap index to jump to (transport
+ * streams, FLV and anything unrecognised) or whose index turned out to be malformed.
  */
-internal fun File.readVideoMetadata(): FileVideoMetadata? = try {
+internal fun File.readVideoMetadata(): FileVideoMetadata? {
+    readContainerMetadata()?.let { metadata ->
+        return FileVideoMetadata(
+            duration = metadata.duration,
+            width = metadata.width,
+            height = metadata.height,
+        )
+    }
+    return readVideoMetadataWithRetriever()
+}
+
+private fun File.readVideoMetadataWithRetriever(): FileVideoMetadata? = try {
     val retriever = MediaMetadataRetriever()
     try {
         retriever.setDataSource(absolutePath)
