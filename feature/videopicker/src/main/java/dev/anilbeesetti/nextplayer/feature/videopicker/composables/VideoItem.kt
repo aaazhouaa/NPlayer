@@ -58,6 +58,11 @@ import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 
+/** Greedy line breaking that still avoids splitting CJK/latin phrases. */
+private val HeadingLineBreak: LineBreak = LineBreak.Heading.copy(
+    strategy = LineBreak.Strategy.Simple,
+)
+
 @Composable
 fun VideoItem(
     video: Video,
@@ -221,7 +226,7 @@ fun VideoGridItem(
                         video.displayName
                     },
                     maxLines = 2,
-                    style = textStyle.copy(lineBreak = LineBreak.Heading),
+                    style = textStyle.copy(lineBreak = HeadingLineBreak),
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                     color = if (isRecentlyPlayedVideo && preferences.markLastPlayedMedia) {
