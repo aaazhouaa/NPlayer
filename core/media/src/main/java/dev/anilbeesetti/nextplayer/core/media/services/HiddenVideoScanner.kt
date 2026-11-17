@@ -39,14 +39,19 @@ import org.koin.core.annotation.Single
  * must not be duplicated. The `file:` uri returned for genuinely hidden files is consumed directly
  * by the player.
  *
- * Duration and resolution are parsed in a background pass after the list is returned, so a slow
- * (or very large) hidden library never delays the picker. [observeCacheUpdates] emits once that
- * pass completes so lists can re-query.
+ * Duration and resolution are parsed in a background pass for files that no earlier scan has
+ * parsed yet, so a slow (or very large) hidden library never delays the picker.
+ * [observeCacheUpdates] emits once that pass completes so lists can re-query.
  *
  * Files added to a hidden folder never reach MediaStore, so no change notification can refresh
  * the caches. Scans are therefore re-walked once the cached snapshot is older than
  * [SCAN_FRESHNESS_MILLIS], and every file's first discovery time is recorded so newly added
  * files are reported with the same "added" semantics as MediaStore rows.
+ *
+ * Duration and resolution come from the persisted snapshots of earlier scans: those values only
+ * change when the file itself changes, so they are reused for as long as the file's size and
+ * modification time match. A scan therefore returns complete rows without opening any file,
+ * including on the very first scan after a cold start.
  */
 @Single
 class HiddenVideoScanner(
@@ -80,14 +85,24 @@ class HiddenVideoScanner(
      */
     private val metadataCache = ConcurrentHashMap<String, CachedFileMetadata>()
 
+    /**
+     * Whether the persisted snapshots have been merged into [metadataCache] this process.
+     *
+     * Every snapshot under `filesDir` is a durable index of `path -> duration/width/height`.
+     * Loading all of them once means a cold start reuses metadata parsed in earlier sessions
+     * instead of re-opening every file, which is what keeps a folder's duration available
+     * immediately rather than after a full background pass.
+     */
+    private var diskIndexLoaded = false
+
     /** Background metadata passes, one per scan key, so concurrent scans don't duplicate work. */
     private val enrichmentJobs = ConcurrentHashMap<ScanKey, Job>()
 
     private val cacheUpdates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     /**
-     * Emits when a background metadata pass finished, so the media list can re-query and pick
-     * up durations that were still unknown when the list was first emitted.
+     * Emits when a background metadata pass parsed files that had no metadata yet, so the media
+     * list can re-query and pick up durations that were still unknown when it was first emitted.
      */
     fun observeCacheUpdates(): Flow<Unit> = cacheUpdates.asSharedFlow()
 
@@ -115,6 +130,7 @@ class HiddenVideoScanner(
             return emptyList()
         }
         loadFirstSeen()
+        seedMetadataIndex()
 
         val key = ScanKey(
             root,
@@ -164,13 +180,19 @@ class HiddenVideoScanner(
             )
         }
 
-        // The list is emitted right away. Metadata already parsed for a file (an earlier
-        // scan of a parent folder, a previous session's disk cache) is included immediately;
-        // only genuinely new files wait for the background pass below.
+        // The list is emitted right away, already carrying every duration an earlier scan parsed
+        // (in memory or restored from a persisted snapshot by seedMetadataIndex). Only files that
+        // no scan has ever parsed wait for the background pass below.
         val videos = files.map { it.toMediaVideo(metadata = it.peekCachedVideoMetadata()) }
         cache[key] = CachedScan(
             videos = videos,
             scannedAtMillis = nowMillis,
+        )
+        // Persist immediately so the metadata survives a cancelled enrichment pass or a process
+        // death; the pass refreshes it again once it has parsed the remaining files.
+        saveToDisk(
+            key = key,
+            videos = videos,
         )
         persistFirstSeen(pruneMissingFiles = root == null)
         Logger.logInfo(
@@ -277,6 +299,9 @@ class HiddenVideoScanner(
     private fun File.readCachedVideoMetadata(): FileVideoMetadata? {
         peekCachedVideoMetadata()?.let { return it }
         val metadata = readVideoMetadata() ?: return null
+        // A container that cannot be parsed reports zeros; caching that would hide the real
+        // values for the rest of the process, so only complete reads are remembered.
+        if (metadata.duration <= 0L) return metadata
         metadataCache[absolutePath] = CachedFileMetadata(
             size = length(),
             lastModified = lastModified(),
@@ -295,9 +320,71 @@ class HiddenVideoScanner(
 
     /** Stores already known metadata for this video's file. */
     private fun MediaVideo.rememberMetadata() {
+        if (duration <= 0L) return
         metadataCache[path] = CachedFileMetadata(
             size = size,
             lastModified = File(path).lastModified(),
+            metadata = FileVideoMetadata(
+                duration = duration,
+                width = width,
+                height = height,
+            ),
+        )
+    }
+
+    /**
+     * Merges every persisted snapshot into [metadataCache] once per process.
+     *
+     * The snapshots are the durable form of what earlier scans parsed, and their key carries the
+     * scan root - not the directory of the individual file - so a snapshot taken for the storage
+     * root also serves scans of any folder beneath it. Entries stay validated by size and
+     * modification time at lookup time, so a replaced file is parsed again.
+     */
+    private fun seedMetadataIndex() {
+        if (diskIndexLoaded) return
+        diskIndexLoaded = true
+        val snapshots = context.filesDir.listFiles()
+            ?.filter { it.name.startsWith(DISK_CACHE_PREFIX) }
+            .orEmpty()
+        val startedAt = System.nanoTime()
+        var seeded = 0
+        snapshots.forEach { snapshot ->
+            runCatching { snapshot.readLines() }.getOrDefault(emptyList())
+                .map { it.trim() }
+                .filter { line -> line.isNotEmpty() && '\t' in line }
+                .forEach { line ->
+                    val parsed = line.toPersistedMetadata() ?: return@forEach
+                    val added = metadataCache.putIfAbsent(
+                        parsed.first,
+                        parsed.second,
+                    ) == null
+                    if (added) seeded++
+                }
+        }
+        Logger.logInfo(
+            tag = TAG,
+            message = "hidden metadata index seeded with $seeded entries from " +
+                "${snapshots.size} snapshot(s) in ${millisSince(startedAt)}ms",
+        )
+    }
+
+    /**
+     * Parses a persisted `path\tduration\twidth\theight` line into its path and metadata.
+     * Fields are read from the right so paths that themselves contain tabs survive.
+     */
+    private fun String.toPersistedMetadata(): Pair<String, CachedFileMetadata>? {
+        var rest = this
+        val height = rest.substringAfterLast('\t').toIntOrNull() ?: return null
+        rest = rest.substringBeforeLast('\t')
+        val width = rest.substringAfterLast('\t').toIntOrNull() ?: return null
+        rest = rest.substringBeforeLast('\t')
+        val duration = rest.substringAfterLast('\t').toLongOrNull() ?: return null
+        val path = rest.substringBeforeLast('\t')
+        if (duration <= 0L) return null
+        val file = File(path).takeIf { it.isFile } ?: return null
+        return path to CachedFileMetadata(
+            size = file.length(),
+            lastModified = file.lastModified(),
             metadata = FileVideoMetadata(
                 duration = duration,
                 width = width,
@@ -310,11 +397,12 @@ class HiddenVideoScanner(
         val rootHash = key.root?.hashCode() ?: 0
         return File(
             context.filesDir,
-            "hidden_scan_${rootHash}_${key.respectNoMedia}.txt",
+            "$DISK_CACHE_PREFIX${rootHash}_${key.respectNoMedia}.txt",
         )
     }
 
     private fun saveToDisk(key: ScanKey, videos: List<MediaVideo>) {
+        if (videos.isEmpty()) return
         runCatching {
             diskFile(key).writeText(
                 videos.joinToString(separator = "\n") { video ->
@@ -334,8 +422,10 @@ class HiddenVideoScanner(
     private fun loadFromDisk(key: ScanKey, nowMillis: Long): List<MediaVideo>? {
         val file = diskFile(key)
         if (!file.exists()) return null
-        // A snapshot past the freshness window is re-walked: files added to a hidden folder
-        // never reach MediaStore, so no change notification can refresh the cache.
+        // A snapshot past the freshness window is re-walked, because files added to a hidden
+        // folder never reach MediaStore and no change notification can refresh the cache. The
+        // durations inside it are not wasted: seedMetadataIndex already merged them, and the
+        // re-walk below reuses them for every file the snapshot described.
         if (nowMillis - file.lastModified() > SCAN_FRESHNESS_MILLIS) return null
         return runCatching {
             val lines = file.readLines()
@@ -354,12 +444,20 @@ class HiddenVideoScanner(
 
     private fun clearDiskCache() {
         context.filesDir.listFiles()
-            ?.filter { it.name.startsWith("hidden_scan_") }
+            ?.filter { it.name.startsWith(DISK_CACHE_PREFIX) }
             ?.forEach { it.delete() }
+        // The index was built from exactly these snapshots.
+        metadataCache.clear()
+        diskIndexLoaded = false
     }
 
     /**
-     * Reads duration and resolution for every scanned file in the background.
+     * Parses duration and resolution for files that no scan has parsed yet.
+     *
+     * A file whose metadata is already known - parsed earlier in this process, or restored from
+     * a persisted snapshot by [seedMetadataIndex] - is never opened again: its values can only
+     * change when the file itself changes, which the size and modification time check catches.
+     * A scan therefore only pays for files that no scan has ever parsed.
      *
      * Opening a MediaMetadataRetriever is expensive, so concurrency is bounded: a large hidden
      * library must not open all of its files at once. The cache and the disk snapshot are only
@@ -371,10 +469,14 @@ class HiddenVideoScanner(
             try {
                 val permits = Semaphore(MAX_CONCURRENT_METADATA_READS)
                 val enriched = withContext(Dispatchers.IO) {
-                    val videos = files.mapAsync { file ->
-                        permits.withPermit {
-                            file.toMediaVideo(metadata = file.readCachedVideoMetadata())
+                    val pending = files.filter { file -> file.peekCachedVideoMetadata() == null }
+                    if (pending.isNotEmpty()) {
+                        pending.mapAsync { file ->
+                            permits.withPermit { file.readCachedVideoMetadata() }
                         }
+                    }
+                    val videos = files.map { file ->
+                        file.toMediaVideo(metadata = file.peekCachedVideoMetadata())
                     }
                     saveToDisk(
                         key,
@@ -590,6 +692,7 @@ class HiddenVideoScanner(
     companion object {
         private const val TAG = "HiddenVideoScanner"
         private const val MAX_CONCURRENT_METADATA_READS = 4
+        private const val DISK_CACHE_PREFIX = "hidden_scan_"
         private const val FIRST_SEEN_RECORD_HEADER = "#hidden-first-seen-v2"
 
         /**

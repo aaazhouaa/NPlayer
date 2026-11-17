@@ -187,6 +187,57 @@ class HiddenVideoScannerTest {
     }
 
     @Test
+    fun `expired snapshot still supplies durations without parsing files again`() = runBlocking {
+        val first = File(
+            root,
+            ".first.mp4",
+        ).apply { writeText("video") }
+        val second = File(
+            root,
+            ".second.mp4",
+        ).apply { writeText("video") }
+        addVideoMetadata(
+            path = first.absolutePath,
+            duration = "111000",
+            width = "1920",
+            height = "1080",
+        )
+        addVideoMetadata(
+            path = second.absolutePath,
+            duration = "222000",
+            width = "1280",
+            height = "720",
+        )
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        // A cold start more than the freshness window later: the directory has to be walked
+        // again to notice new files, but the durations parsed in the earlier session are still
+        // valid, so they must be returned by the very first emission of the new process.
+        context.filesDir.listFiles()!!
+            .single { it.name.startsWith("hidden_scan_") }
+            .setLastModified(System.currentTimeMillis() - 10 * 60 * 1000L)
+        // Forget every registered metadata entry: a file opened again would now read as zero,
+        // so a non-zero duration below proves the value was reused instead of re-parsed.
+        ShadowMediaMetadataRetriever.reset()
+
+        val coldScanner = HiddenVideoScanner(
+            context = context,
+            applicationScope = scope,
+        )
+        val result = coldScanner.scan(root.absolutePath)
+
+        assertEquals(
+            111_000L,
+            result.single { it.path == first.path }.duration,
+        )
+        assertEquals(
+            222_000L,
+            result.single { it.path == second.path }.duration,
+        )
+    }
+
+    @Test
     fun `newly discovered files report discovery time as dateAdded`() = runBlocking {
         File(
             root,
