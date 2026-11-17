@@ -899,13 +899,21 @@ class PlayerService : MediaSessionService() {
         abRepeatMessage = null
         val player = mediaSession?.player as? ExoPlayer ?: return
         val current = repeat ?: return
-        // The message outlives delivery so each pass over the end point seeks back again.
+        // The message target runs on the playback thread, where calling into the player throws,
+        // so delivery is moved to the application thread. It outlives delivery so each pass over
+        // the end point seeks back again.
         abRepeatMessage = player.createMessage { _, _ ->
             abRepeat?.let { player.seekTo(it.startMs) }
         }
+            .setLooper(player.applicationLooper)
             .setPosition(current.endMs)
             .setDeleteAfterDelivery(false)
             .send()
+        // The end point is usually the position playback was at when it was marked, and a
+        // message is only delivered once playback crosses it, which never happens from there on.
+        if (player.currentPosition !in current.startMs until current.endMs) {
+            player.seekTo(current.startMs)
+        }
     }
 
     private suspend fun startBackgroundPlayback(

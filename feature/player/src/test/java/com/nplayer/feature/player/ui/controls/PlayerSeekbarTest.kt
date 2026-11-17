@@ -15,11 +15,9 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.extractor.metadata.Chapter
 import com.nplayer.core.ui.theme.NPlayerTheme
 import com.nplayer.feature.player.LocalUseMaterialYouControls
-import com.nplayer.feature.player.state.PlayerScrubState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -41,21 +39,18 @@ class PlayerSeekbarTest {
         // gesture layer, which would read the press as a tap on the video.
         var materialControls by mutableStateOf(value = false)
         var hits = 0
-        val player = composeRule.runOnIdle {
-            ExoPlayer.Builder(composeRule.activity).build()
-        }
-        val scrubState = PlayerScrubState(player = player)
         composeRule.setContent {
             NPlayerTheme {
                 CompositionLocalProvider(
                     value = LocalUseMaterialYouControls provides materialControls,
                 ) {
                     PlayerSeekbar(
-                        scrubState = scrubState,
                         position = 100f,
                         duration = 1_000f,
                         chapters = emptyList(),
-                        onSeekCommit = { hits++ },
+                        onSeek = { hits++ },
+                        onSeekFinished = {},
+                        onSeekCancel = {},
                     )
                 }
             }
@@ -95,7 +90,6 @@ class PlayerSeekbarTest {
                 )
             }
         }
-        composeRule.runOnIdle { player.release() }
     }
 
     @Test
@@ -115,10 +109,6 @@ class PlayerSeekbarTest {
                 700L,
             ).map { Chapter.Builder().setStartTimeMs(it).build() },
         )
-        val player = composeRule.runOnIdle {
-            ExoPlayer.Builder(composeRule.activity).build()
-        }
-        val scrubState = PlayerScrubState(player = player)
         composeRule.setContent {
             NPlayerTheme {
                 CompositionLocalProvider(
@@ -126,11 +116,12 @@ class PlayerSeekbarTest {
                     LocalUseMaterialYouControls provides materialControls,
                 ) {
                     PlayerSeekbar(
-                        scrubState = scrubState,
                         position = position,
                         duration = 1_000f,
                         chapters = chapters,
-                        onSeekCommit = { position = it.toFloat() },
+                        onSeek = { position = it },
+                        onSeekFinished = {},
+                        onSeekCancel = {},
                     )
                 }
             }
@@ -267,6 +258,5 @@ class PlayerSeekbarTest {
                 ticks.size,
             )
         }
-        composeRule.runOnIdle { player.release() }
     }
 }

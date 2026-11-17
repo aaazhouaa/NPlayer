@@ -39,12 +39,10 @@ import com.nplayer.feature.player.state.rememberChaptersState
 import com.nplayer.feature.player.state.rememberMediaPresentationState
 import com.nplayer.feature.player.state.rememberMetadataState
 import com.nplayer.feature.player.state.rememberPlayerKeyInputState
-import com.nplayer.feature.player.state.rememberPlayerScrubState
 import com.nplayer.feature.player.ui.DpadSeekIndicator
 import com.nplayer.feature.player.ui.OverlayShowView
 import com.nplayer.feature.player.ui.OverlayView
 import com.nplayer.feature.player.ui.PlayerGestureIndicators
-import com.nplayer.feature.player.ui.controls.ScrubPreviewOverlay
 import kotlin.time.Duration.Companion.seconds
 
 /** Controls and overlays shared by live playback and the previewable content. */
@@ -67,7 +65,6 @@ internal fun MediaPlayerControls(
     val metadataState = rememberMetadataState(player = player)
     val mediaPresentationState = rememberMediaPresentationState(player = player)
     val progressState = rememberProgressStateWithTickInterval(player = player)
-    val scrubState = rememberPlayerScrubState(player = player)
     val chaptersState = rememberChaptersState(
         player = player,
         progressState = progressState,
@@ -173,7 +170,6 @@ internal fun MediaPlayerControls(
                     videoZoomAndContentScaleState = videoZoomAndContentScaleState,
                     progressState = progressState,
                     chaptersState = chaptersState,
-                    scrubState = scrubState,
                     abRepeatState = abRepeatState,
                     isPipSupported = isPipSupported,
                     onShowOverlay = ::showOverlay,
@@ -187,12 +183,6 @@ internal fun MediaPlayerControls(
                     },
                 )
             }
-
-            ScrubPreviewOverlay(
-                scrubState = scrubState,
-                durationMs = progressState.durationMs,
-                modifier = Modifier.align(Alignment.TopStart),
-            )
 
             OverlayShowView(
                 player = player,

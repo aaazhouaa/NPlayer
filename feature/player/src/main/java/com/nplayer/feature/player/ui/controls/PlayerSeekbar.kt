@@ -44,8 +44,6 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -55,7 +53,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.extractor.metadata.Chapter
 import com.nplayer.feature.player.LocalUseMaterialYouControls
 import com.nplayer.feature.player.model.AbRepeat
-import com.nplayer.feature.player.state.PlayerScrubState
 import com.nplayer.feature.player.state.currentChapterIndex
 import kotlin.math.abs
 
@@ -79,7 +76,7 @@ private val SLIDER_OWN_TOUCH_HEIGHT = 48.dp
 private val TRACK_HALF_HEIGHT = 4.dp
 
 /** How far above the track a drag has to move before it stops seeking. */
-private val SCRUB_CANCEL_DISTANCE = 20.dp
+private val SCRUB_CANCEL_DISTANCE = 60.dp
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -88,19 +85,23 @@ private val SCRUB_CANCEL_DISTANCE = 20.dp
 @Composable
 internal fun PlayerSeekbar(
     modifier: Modifier = Modifier,
-    scrubState: PlayerScrubState,
     position: Float,
     duration: Float,
     chapters: List<Chapter>,
     abRepeat: AbRepeat? = null,
-    onSeekCommit: (Long) -> Unit,
+    onSeek: (Float) -> Unit,
+    onSeekFinished: () -> Unit,
+    onSeekCancel: () -> Unit,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
-    val currentOnSeekCommit by rememberUpdatedState(newValue = onSeekCommit)
+    val currentOnSeekFinished by rememberUpdatedState(newValue = onSeekFinished)
+    val currentOnSeekCancel by rememberUpdatedState(newValue = onSeekCancel)
+    var isScrubbing by remember { mutableStateOf(value = false) }
+    var isCancelled by remember { mutableStateOf(value = false) }
     var lastSeekChapterIndex by remember(chapters) { mutableStateOf<Int?>(value = null) }
     val onValueChange: (Float) -> Unit = { value ->
-        if (!scrubState.isCancelled) {
-            scrubState.onScrub(positionMs = value.toLong())
+        if (!isCancelled) {
+            isScrubbing = true
             val chapterIndex = chapters.currentChapterIndex(value.toLong())
             val previousChapterIndex =
                 lastSeekChapterIndex ?: chapters.currentChapterIndex(position.toLong())
@@ -108,11 +109,16 @@ internal fun PlayerSeekbar(
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
             }
             lastSeekChapterIndex = chapterIndex
+            onSeek(value)
         }
     }
     val onValueChangeFinished: () -> Unit = {
         lastSeekChapterIndex = null
-        scrubState.endScrub()?.let { currentOnSeekCommit(it) }
+        if (isScrubbing) {
+            isScrubbing = false
+            currentOnSeekFinished()
+        }
+        isCancelled = false
     }
     val useMaterialYouControls = LocalUseMaterialYouControls.current
     DisposableEffect(key1 = useMaterialYouControls) {
@@ -132,25 +138,18 @@ internal fun PlayerSeekbar(
     val cancelDistancePx = with(density) { SCRUB_CANCEL_DISTANCE.toPx() }
     val currentDuration by rememberUpdatedState(newValue = duration)
     val currentOnValueChange by rememberUpdatedState(newValue = onValueChange)
-    val displayedPosition = if (scrubState.isScrubbing) {
-        scrubState.scrubPositionMs.toFloat()
-    } else {
-        position
-    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(SEEKBAR_TOUCH_TARGET)
-            .onGloballyPositioned { coordinates ->
-                scrubState.updateSeekbarBounds(coordinates.boundsInRoot())
-            }
-            .pointerInput(scrubState) {
+            .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(
                         requireUnconsumed = false,
                         pass = PointerEventPass.Initial,
                     )
-                    if (currentDuration <= 0f) return@awaitEachGesture
+                    val trackValueRange = currentDuration.takeIf { it > 0f }
+                    if (trackValueRange == null) return@awaitEachGesture
                     // Presses in the padding around the slider are claimed here, since the
                     // slider would otherwise let them reach the tap handler behind. Presses on
                     // the slider itself stay with the slider, which drives onValueChange.
@@ -162,7 +161,7 @@ internal fun PlayerSeekbar(
                             minimumValue = 0f,
                             maximumValue = 1f,
                         )
-                        currentOnValueChange(fraction * currentDuration)
+                        currentOnValueChange(fraction * trackValueRange)
                     }
                     // Cancel line is 20dp above the track, but never closer to the finger than
                     // the press itself: a press that already lands in that band has still not
@@ -178,24 +177,21 @@ internal fun PlayerSeekbar(
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (!startsOnSlider) {
                             change.consume()
-                            if (!cancelled) {
+                            if (!cancelled && change.pressed) {
                                 val fraction = (change.position.x / size.width).coerceIn(
                                     minimumValue = 0f,
                                     maximumValue = 1f,
                                 )
-                                currentOnValueChange(fraction * currentDuration)
+                                currentOnValueChange(fraction * trackValueRange)
                             }
                         }
                         val aboveCancelLine = change.position.y < cancelLineY
                         if (aboveCancelLine != cancelled) {
                             cancelled = aboveCancelLine
+                            isCancelled = cancelled
+                            lastSeekChapterIndex = null
                             if (cancelled) {
-                                scrubState.cancel()
-                            } else {
-                                // The position jumped back to the playing position, so the next
-                                // chapter has to be measured from there.
-                                lastSeekChapterIndex = null
-                                scrubState.resume()
+                                currentOnSeekCancel()
                             }
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
                         }
@@ -217,7 +213,7 @@ internal fun PlayerSeekbar(
                     isFocused = isFocused,
                     chapters = chapters,
                     abRepeat = abRepeat,
-                    value = displayedPosition,
+                    value = position,
                     valueRange = 0f..(duration.takeIf { it > 0 } ?: 0f),
                     onValueChange = onValueChange,
                     onValueChangeFinished = onValueChangeFinished,
@@ -228,7 +224,7 @@ internal fun PlayerSeekbar(
                     isFocused = isFocused,
                     chapters = chapters,
                     abRepeat = abRepeat,
-                    value = displayedPosition,
+                    value = position,
                     valueRange = 0f..(duration.takeIf { it > 0 } ?: 0f),
                     onValueChange = onValueChange,
                     onValueChangeFinished = onValueChangeFinished,

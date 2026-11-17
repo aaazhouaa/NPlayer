@@ -58,10 +58,8 @@ import com.nplayer.feature.player.buttons.ShuffleButton
 import com.nplayer.feature.player.extensions.drawableRes
 import com.nplayer.feature.player.state.AbRepeatState
 import com.nplayer.feature.player.state.ChaptersState
-import com.nplayer.feature.player.state.PlayerScrubState
 import com.nplayer.feature.player.state.rememberAbRepeatState
 import com.nplayer.feature.player.state.rememberChaptersState
-import com.nplayer.feature.player.state.rememberPlayerScrubState
 import com.nplayer.feature.player.ui.preview.rememberPreviewPlayer
 import com.nplayer.feature.player.ui.titleOrDefault
 
@@ -74,7 +72,6 @@ fun ControlsBottomView(
     player: Player?,
     progressState: ProgressStateWithTickInterval,
     chaptersState: ChaptersState,
-    scrubState: PlayerScrubState,
     controlsAlignment: Alignment.Horizontal,
     videoContentScale: VideoContentScale,
     isPipSupported: Boolean,
@@ -88,7 +85,9 @@ fun ControlsBottomView(
     onPlaybackSpeedClick: () -> Unit,
     onAbRepeatLongClick: () -> Unit,
     onPlayInBackgroundClick: () -> Unit,
-    onSeekCommit: (Long) -> Unit,
+    onSeek: (Long) -> Unit,
+    onSeekEnd: () -> Unit,
+    onSeekCancel: () -> Unit,
     abRepeatState: AbRepeatState,
 ) {
     val systemBarsPadding = WindowInsets.systemBars.union(
@@ -131,17 +130,10 @@ fun ControlsBottomView(
                         vertical = 1.dp,
                     ),
                 ) {
-                    val timeTextPositionMs by remember(
-                        progressState,
-                        scrubState,
-                    ) {
+                    val timeTextPositionMs by remember(progressState) {
                         derivedStateOf {
-                            val positionMs = if (scrubState.isScrubbing) {
-                                scrubState.scrubPositionMs
-                            } else {
-                                progressState.currentPositionMs
-                            }
-                            val wholeSeconds = positionMs / MILLISECONDS_PER_SECOND
+                            val wholeSeconds =
+                                progressState.currentPositionMs / MILLISECONDS_PER_SECOND
                             wholeSeconds * MILLISECONDS_PER_SECOND
                         }
                     }
@@ -231,12 +223,13 @@ fun ControlsBottomView(
             }
         }
         PlayerSeekbar(
-            scrubState = scrubState,
             position = progressState.currentPositionMs.toFloat(),
             duration = progressState.durationMs.toFloat(),
             chapters = chaptersState.chapters,
             abRepeat = abRepeatState.repeat,
-            onSeekCommit = onSeekCommit,
+            onSeek = { onSeek(it.toLong()) },
+            onSeekFinished = { onSeekEnd() },
+            onSeekCancel = onSeekCancel,
         )
         Row(
             modifier = Modifier
@@ -299,7 +292,6 @@ private fun ControlsBottomViewPreview() {
                     progressState = progressState,
                 ),
                 abRepeatState = rememberAbRepeatState(player = player),
-                scrubState = rememberPlayerScrubState(player = player),
                 controlsAlignment = Alignment.Start,
                 videoContentScale = VideoContentScale.BEST_FIT,
                 isPipSupported = true,
@@ -313,7 +305,9 @@ private fun ControlsBottomViewPreview() {
                 onPlaybackSpeedClick = {},
                 onAbRepeatLongClick = {},
                 onPlayInBackgroundClick = {},
-                onSeekCommit = {},
+                onSeek = {},
+                onSeekEnd = {},
+                onSeekCancel = {},
             )
         }
     }

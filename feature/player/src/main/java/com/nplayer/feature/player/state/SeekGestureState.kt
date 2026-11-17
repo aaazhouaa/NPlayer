@@ -80,6 +80,14 @@ class SeekGestureState(
         reset()
     }
 
+    /** Abandons the seek and returns to the position the drag started from. */
+    fun onSeekCancel() {
+        if (isSeeking) {
+            seekStartPosition?.let { player.seekTo(it) }
+        }
+        reset()
+    }
+
     fun onDragStart(offset: Offset) {
         if (!enableSeekGesture) return
         if (player.currentPosition < 0) return

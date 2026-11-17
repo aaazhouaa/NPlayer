@@ -43,7 +43,6 @@ import com.nplayer.core.ui.R
 import com.nplayer.core.ui.theme.NPlayerTheme
 import com.nplayer.feature.player.state.rememberAbRepeatState
 import com.nplayer.feature.player.state.rememberChaptersState
-import com.nplayer.feature.player.state.rememberPlayerScrubState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -241,7 +240,6 @@ class ControlsBottomViewTest {
                         progressState = progress,
                     ),
                     abRepeatState = rememberAbRepeatState(player = player),
-                    scrubState = rememberPlayerScrubState(player = player),
                     controlsAlignment = Alignment.Start,
                     videoContentScale = VideoContentScale.BEST_FIT,
                     isPipSupported = true,
@@ -255,7 +253,9 @@ class ControlsBottomViewTest {
                     onPlaybackSpeedClick = {},
                     onAbRepeatLongClick = {},
                     onPlayInBackgroundClick = {},
-                    onSeekCommit = player::seekTo,
+                    onSeek = player::seekTo,
+                    onSeekEnd = {},
+                    onSeekCancel = {},
                 )
             }
         }
