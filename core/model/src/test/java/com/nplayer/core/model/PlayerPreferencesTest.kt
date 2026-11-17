@@ -36,11 +36,11 @@ class PlayerPreferencesTest {
     }
 
     @Test
-    fun `gesture defaults favor quicker seeking and 5x long press speed`() {
+    fun `gesture defaults use 1x seek sensitivity and 5x long press speed`() {
         val preferences = PlayerPreferences()
 
         assertEquals(
-            2.0f,
+            1.0f,
             preferences.seekSensitivity,
         )
         assertTrue(preferences.useLongPressControls)

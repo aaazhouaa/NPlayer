@@ -144,10 +144,3 @@ val SeekGestureState.seekAmountFormatted: String
         val sign = if (seekAmount < 0) "-" else "+"
         return sign + abs(n = seekAmount).milliseconds.formatted()
     }
-
-val SeekGestureState.seekToPositionFormated: String
-    get() {
-        val position = seekStartPosition ?: return ""
-        val seekAmount = seekAmount ?: return ""
-        return (position + seekAmount).milliseconds.formatted()
-    }

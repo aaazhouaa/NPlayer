@@ -8,10 +8,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.state.ProgressStateWithTickInterval
@@ -24,7 +30,6 @@ import com.nplayer.feature.player.state.ControlsVisibilityState
 import com.nplayer.feature.player.state.SeekGestureState
 import com.nplayer.feature.player.state.VideoZoomAndContentScaleState
 import com.nplayer.feature.player.state.seekAmountFormatted
-import com.nplayer.feature.player.state.seekToPositionFormated
 import com.nplayer.feature.player.ui.InfoView
 import com.nplayer.feature.player.ui.OverlayView
 import com.nplayer.feature.player.ui.controls.ControlsBottomView
@@ -118,10 +123,17 @@ fun PlayerControls(
             }
         }
         when {
-            seekGestureState.seekAmount != null -> InfoView(
-                info =
-                    "${seekGestureState.seekAmountFormatted}\n" +
-                        "[${seekGestureState.seekToPositionFormated}]",
+            seekGestureState.seekAmount != null -> Text(
+                text = seekGestureState.seekAmountFormatted,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(
+                        start = 16.dp,
+                        bottom = 176.dp,
+                    ),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
             )
 
             videoZoomAndContentScaleState.isZooming -> InfoView(
