@@ -12,8 +12,11 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import androidx.media3.extractor.metadata.Chapter
 import dev.anilbeesetti.nextplayer.core.ui.theme.NextPlayerTheme
 import dev.anilbeesetti.nextplayer.feature.player.LocalUseMaterialYouControls
@@ -29,6 +32,25 @@ import org.robolectric.annotation.Config
 class PlayerSeekbarTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun seekbarKeepsAMaterialSizedTouchTarget() {
+        composeRule.setContent {
+            NextPlayerTheme {
+                PlayerSeekbar(
+                    position = 100f,
+                    duration = 1_000f,
+                    chapters = emptyList(),
+                    onSeek = {},
+                    onSeekFinished = {},
+                )
+            }
+        }
+
+        // The drawn track is 4-8dp, but the target has to stay at the Material minimum. A 24dp
+        // strip is narrower than a fingertip, so most presses on the track would miss it.
+        composeRule.onRoot().assertHeightIsAtLeast(48.dp)
+    }
 
     @Test
     fun bothStylesTickOnlyWhenScrubbingAcrossChapters() {

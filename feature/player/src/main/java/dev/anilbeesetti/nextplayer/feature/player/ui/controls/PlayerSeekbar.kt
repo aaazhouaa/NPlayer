@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
@@ -47,6 +48,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.extractor.metadata.Chapter
 import dev.anilbeesetti.nextplayer.feature.player.LocalUseMaterialYouControls
 import dev.anilbeesetti.nextplayer.feature.player.state.currentChapterIndex
+
+/** Smallest touch target Material allows; the drawn track stays 4-8dp inside it. */
+private val SEEKBAR_TOUCH_TARGET = 48.dp
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -95,27 +99,37 @@ internal fun PlayerSeekbar(
             if (isFocused && !it.isFocused) onValueChangeFinished()
             isFocused = it.isFocused
         }
-    CompositionLocalProvider(value = LocalLayoutDirection provides LayoutDirection.Ltr) {
-        if (useMaterialYouControls) {
-            MaterialYouSlider(
-                modifier = focusModifier,
-                isFocused = isFocused,
-                chapters = chapters,
-                value = position,
-                valueRange = 0f..(duration.takeIf { it > 0 } ?: 0f),
-                onValueChange = onValueChange,
-                onValueChangeFinished = onValueChangeFinished,
-            )
-        } else {
-            SimpleSlider(
-                modifier = focusModifier,
-                isFocused = isFocused,
-                chapters = chapters,
-                value = position,
-                valueRange = 0f..(duration.takeIf { it > 0 } ?: 0f),
-                onValueChange = onValueChange,
-                onValueChangeFinished = onValueChangeFinished,
-            )
+    // The sliders draw a 4-8dp track, but the touch target has to stay at the Material minimum:
+    // a fingertip covers roughly 8-10mm, so a 24dp strip is mostly missed - and missing it
+    // falls through to the gesture layer behind, which closes the controls.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(SEEKBAR_TOUCH_TARGET),
+        contentAlignment = Alignment.Center,
+    ) {
+        CompositionLocalProvider(value = LocalLayoutDirection provides LayoutDirection.Ltr) {
+            if (useMaterialYouControls) {
+                MaterialYouSlider(
+                    modifier = focusModifier,
+                    isFocused = isFocused,
+                    chapters = chapters,
+                    value = position,
+                    valueRange = 0f..(duration.takeIf { it > 0 } ?: 0f),
+                    onValueChange = onValueChange,
+                    onValueChangeFinished = onValueChangeFinished,
+                )
+            } else {
+                SimpleSlider(
+                    modifier = focusModifier,
+                    isFocused = isFocused,
+                    chapters = chapters,
+                    value = position,
+                    valueRange = 0f..(duration.takeIf { it > 0 } ?: 0f),
+                    onValueChange = onValueChange,
+                    onValueChangeFinished = onValueChangeFinished,
+                )
+            }
         }
     }
 }
@@ -152,7 +166,7 @@ private fun MaterialYouSlider(
         onValueChange = onValueChange,
         onValueChangeFinished = onValueChangeFinished,
         interactionSource = interactionSource,
-        modifier = modifier.size(24.dp),
+        modifier = modifier.height(height = SEEKBAR_TOUCH_TARGET),
         track = { sliderState ->
             val disabledAlpha = 0.4f
 
@@ -320,7 +334,7 @@ private fun SimpleSlider(
         valueRange = valueRange,
         onValueChange = onValueChange,
         onValueChangeFinished = onValueChangeFinished,
-        modifier = modifier.height(24.dp),
+        modifier = modifier.height(SEEKBAR_TOUCH_TARGET),
         thumb = {
             Box(
                 modifier = Modifier
