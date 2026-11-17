@@ -63,10 +63,10 @@ object Utils {
         val gb = mb * 1024
 
         return when {
-            size < kb -> "$size B"
-            size < mb -> "%.2f KB".format(size / kb.toDouble())
-            size < gb -> "%.2f MB".format(size / mb.toDouble())
-            else -> "%.2f GB".format(size / gb.toDouble())
+            size < kb -> "${size}B"
+            size < mb -> "%.2fKB".format(size / kb.toDouble())
+            size < gb -> "%.2fMB".format(size / mb.toDouble())
+            else -> "%.2fGB".format(size / gb.toDouble())
         }
     }
 

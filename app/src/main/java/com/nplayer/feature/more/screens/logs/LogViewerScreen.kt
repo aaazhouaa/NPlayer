@@ -206,7 +206,7 @@ private fun LogSessionItem(summary: LogSummary, selected: Boolean, onClick: () -
             .format(Date(summary.session.lastModifiedMillis))
     }
     val size = remember(summary.session.sizeBytes) {
-        "${summary.session.sizeBytes / 1024} KB"
+        "${summary.session.sizeBytes / 1024}KB"
     }
     Row(
         modifier = Modifier
