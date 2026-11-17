@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Paint
 import android.media.MediaMetadataRetriever
 import android.os.Build.VERSION.SDK_INT
+import android.os.ParcelFileDescriptor
 import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
@@ -37,6 +38,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -52,8 +54,34 @@ class VideoThumbnailDecoder(
     private val mimeType: String?,
 ) : Decoder {
 
-    private val isTransportStream: Boolean
-        get() = mimeType == "video/mp2ts"
+    private val isTransportStream: Boolean by lazy {
+        mimeType == "video/mp2t" || mimeType == "video/mp2ts" || hasTransportStreamPackets()
+    }
+
+    private fun hasTransportStreamPackets(): Boolean {
+        val peek = source.source().peek()
+        peek.request(TRANSPORT_STREAM_PROBE_BYTES)
+        val header = peek.buffer
+        for (packetSize in intArrayOf(
+            188,
+            192,
+            204,
+        )) {
+            for (offset in 0 until packetSize) {
+                if (offset + packetSize * 4L >= header.size) break
+                if ((0 until 5).all { index ->
+                        header[offset + index * packetSize.toLong()] == 0x47.toByte()
+                    }
+                ) {
+                    logInfo(
+                        "detected transport stream packets (size=$packetSize) for $sourceCacheKey",
+                    )
+                    return true
+                }
+            }
+        }
+        return false
+    }
 
     private val diskCacheKey: String
         get() {
@@ -418,18 +446,18 @@ class VideoThumbnailDecoder(
      * indefinitely. Running out of slots is reported as [Extraction.Abandoned] so the request
      * fails promptly and can be retried, instead of pinning a Coil coroutine.
      */
-    private suspend fun <T> awaitPooled(
+    private suspend fun awaitPooled(
         guardMillis: Long,
         abandonedMessage: String,
         slots: Semaphore = openSlots,
-        block: () -> T,
-    ): Extraction<T> {
+        block: () -> Bitmap?,
+    ): Extraction<Bitmap?> {
         val acquired = withTimeoutOrNull(SLOT_WAIT_MILLIS) { slots.acquire() }
         if (acquired == null) {
             logWarning("no free extraction slot for $diskCacheKey, abandoning it")
             return Extraction.Abandoned
         }
-        val result = CompletableDeferred<Result<T>>()
+        val result = CompletableDeferred<Result<Bitmap?>>()
         try {
             extractionExecutor.execute {
                 try {
@@ -453,11 +481,12 @@ class VideoThumbnailDecoder(
         }
         return Extraction.Finished(
             outcome.getOrElse { error ->
+                if (error is CancellationException || error !is Exception) throw error
                 logError(
                     message = "thumbnail extraction failed for $diskCacheKey",
                     throwable = error,
                 )
-                throw error
+                null
             },
         )
     }
@@ -573,7 +602,16 @@ class VideoThumbnailDecoder(
             }
 
             source.fileSystem === FileSystem.SYSTEM -> {
-                setDataSource(source.file().toFile().path)
+                ParcelFileDescriptor.open(
+                    source.file().toFile(),
+                    ParcelFileDescriptor.MODE_READ_ONLY,
+                ).use { descriptor ->
+                    setDataSource(
+                        descriptor.fileDescriptor,
+                        0L,
+                        descriptor.statSize,
+                    )
+                }
             }
 
             else -> error(message = "Not supported")
@@ -594,7 +632,12 @@ class VideoThumbnailDecoder(
             }
 
             source.fileSystem === FileSystem.SYSTEM -> {
-                setDataSource(source.file().toFile().path)
+                ParcelFileDescriptor.open(
+                    source.file().toFile(),
+                    ParcelFileDescriptor.MODE_READ_ONLY,
+                ).use { descriptor ->
+                    setDataSource(descriptor)
+                }
             }
 
             else -> error(message = "Not supported")
@@ -729,6 +772,7 @@ class VideoThumbnailDecoder(
 
     private companion object {
         const val LOG_TAG = "Thumbnail"
+        const val TRANSPORT_STREAM_PROBE_BYTES = 1_024L
 
         /**
          * How long opening the file may take before the seek is skipped. Opening a

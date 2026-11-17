@@ -297,7 +297,7 @@ class HiddenVideoScanner(
     private fun MediaVideo.rememberMetadata() {
         metadataCache[path] = CachedFileMetadata(
             size = size,
-            lastModified = dateModified,
+            lastModified = File(path).lastModified(),
             metadata = FileVideoMetadata(
                 duration = duration,
                 width = width,

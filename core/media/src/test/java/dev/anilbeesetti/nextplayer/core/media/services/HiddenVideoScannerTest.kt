@@ -557,6 +557,46 @@ class HiddenVideoScannerTest {
     }
 
     @Test
+    fun `subfolder scan reuses metadata restored from disk with millisecond modification time`() =
+        runBlocking {
+            val hiddenDir = File(
+                root,
+                ".Movies",
+            ).apply { mkdirs() }
+            val video = File(
+                hiddenDir,
+                "episode.mp4",
+            ).apply {
+                writeText("video")
+                setLastModified(1_700_000_000_123L)
+            }
+            File(
+                context.filesDir,
+                "hidden_scan_${root.absolutePath.hashCode()}_false.txt",
+            ).writeText("${video.absolutePath}\t123456\t1920\t1080")
+            val restored = scanner.scan(root.absolutePath).single()
+            assertEquals(
+                123_456L,
+                restored.duration,
+            )
+
+            val nested = scanner.scan(hiddenDir.absolutePath).single()
+
+            assertEquals(
+                restored.duration,
+                nested.duration,
+            )
+            assertEquals(
+                restored.width,
+                nested.width,
+            )
+            assertEquals(
+                restored.height,
+                nested.height,
+            )
+        }
+
+    @Test
     fun `scan cache without persisted metadata is discarded`() = runBlocking {
         val video = File(
             root,

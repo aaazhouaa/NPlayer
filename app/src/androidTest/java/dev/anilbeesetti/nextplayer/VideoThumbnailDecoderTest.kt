@@ -57,6 +57,73 @@ class VideoThumbnailDecoderTest {
     }
 
     @Test
+    fun fileVideoDecodesAllStrategiesThroughDescriptor() = runBlocking {
+        withVideoAsset(assetName = "thumbnail-test.mp4") { context, file ->
+            assertDecodesAllStrategies(
+                context = context,
+                uri = file.toURI().toString(),
+            )
+        }
+    }
+
+    @Test
+    fun renamingParentToHiddenDirectoryPreservesPercentageFrame() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val parent = File(
+            context.cacheDir,
+            "thumbnail-folder-${UUID.randomUUID()}",
+        ).apply { check(mkdir()) }
+        val visibleDirectory = File(
+            parent,
+            "Movies",
+        ).apply { check(mkdir()) }
+        val hiddenDirectory = File(
+            parent,
+            ".Movies",
+        )
+        val video = File(
+            visibleDirectory,
+            "episode.mp4",
+        )
+        try {
+            InstrumentationRegistry.getInstrumentation().context.assets.open(
+                TS_ASSET,
+            ).use { input ->
+                video.outputStream().use { input.copyTo(out = it) }
+            }
+            val visibleFrame = assertDecodes(
+                context = context,
+                uri = video.toURI().toString(),
+                strategy = ThumbnailStrategy.FrameAtPercentage(),
+            ).image.toBitmap()
+            check(visibleDirectory.renameTo(hiddenDirectory))
+            val hiddenVideo = File(
+                hiddenDirectory,
+                video.name,
+            )
+            val hiddenFrame = assertDecodes(
+                context = context,
+                uri = hiddenVideo.toURI().toString(),
+                strategy = ThumbnailStrategy.FrameAtPercentage(),
+            ).image.toBitmap()
+            assertTrue(visibleFrame.sameAs(hiddenFrame))
+            assertDecodesDifferentFrameAtThirtyThreePercent(
+                context = context,
+                uri = hiddenVideo.toURI().toString(),
+            )
+        } finally {
+            File(
+                hiddenDirectory,
+                video.name,
+            ).delete()
+            video.delete()
+            hiddenDirectory.delete()
+            visibleDirectory.delete()
+            parent.delete()
+        }
+    }
+
+    @Test
     fun framePositionPastEndOfVideoStillDecodesAThumbnail() = runBlocking {
         withContentVideo { context ->
             // A duration longer than the real stream makes the seek fail on both retrievers;
@@ -86,16 +153,35 @@ class VideoThumbnailDecoderTest {
         }
 
     @Test
+    fun transportStreamNamedMp4DecodesDifferentFrameAtThirtyThreePercent() = runBlocking {
+        withVideoAsset(
+            assetName = TS_ASSET,
+            extension = "mp4",
+        ) { context, file ->
+            assertDecodesDifferentFrameAtThirtyThreePercent(
+                context = context,
+                uri = file.toURI().toString(),
+            )
+        }
+    }
+
+    @Test
     fun transportStreamWithNonzeroStartTimeContentUriDecodesDifferentFrameAtThirtyThreePercent() =
         runBlocking {
-            withContentVideo(
-                assetName = TS_ASSET,
-                mimeType = "video/mp2ts",
-            ) { context ->
-                assertDecodesDifferentFrameAtThirtyThreePercent(
-                    context = context,
-                    uri = CONTENT_URI,
-                )
+            for (mimeType in listOf(
+                "video/mp2t",
+                "video/mp2ts",
+                "video/mp4",
+            )) {
+                withContentVideo(
+                    assetName = TS_ASSET,
+                    mimeType = mimeType,
+                ) { context ->
+                    assertDecodesDifferentFrameAtThirtyThreePercent(
+                        context = context,
+                        uri = CONTENT_URI,
+                    )
+                }
             }
         }
 
@@ -134,11 +220,15 @@ class VideoThumbnailDecoderTest {
         }
     }
 
-    private suspend fun withVideoAsset(assetName: String, block: suspend (Context, File) -> Unit) {
+    private suspend fun withVideoAsset(
+        assetName: String,
+        extension: String = assetName.substringAfterLast('.'),
+        block: suspend (Context, File) -> Unit,
+    ) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val file = File.createTempFile(
             "thumbnail-test-",
-            ".${assetName.substringAfterLast('.')}",
+            ".$extension",
             context.cacheDir,
         )
         try {
