@@ -13,11 +13,14 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.anilbeesetti.nextplayer.core.common.extensions.scanPaths
+import dev.anilbeesetti.nextplayer.core.media.services.HiddenVideoScanner
 import dev.anilbeesetti.nextplayer.core.media.services.LocalMediaOperationsService
 import dev.anilbeesetti.nextplayer.core.media.services.TransferEvent
 import dev.anilbeesetti.nextplayer.core.media.services.TransferMode
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.single
@@ -107,7 +110,13 @@ class NativeMediaMoveTest {
                 android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
             )
             val result = withTimeout(timeMillis = 10_000) {
-                LocalMediaOperationsService(context).transferMedia(
+                LocalMediaOperationsService(
+                    context = context,
+                    hiddenVideoScanner = HiddenVideoScanner(
+                        context = context,
+                        applicationScope = CoroutineScope(SupervisorJob()),
+                    ),
+                ).transferMedia(
                     uris = listOf(sourceUri),
                     folderUri = DocumentsContract.buildTreeDocumentUri(
                         "com.android.externalstorage.documents",

@@ -690,10 +690,57 @@ class HiddenVideoScannerTest {
     }
 
     /** Waits until the background metadata pass replaced the cached scan. */
-    private suspend fun awaitEnrichment(target: HiddenVideoScanner, timeoutMillis: Long = 5_000) {
-        val initial = target.scan(root.absolutePath)
+    @Test
+    fun `deleted hidden files disappear from cached scans immediately`() = runBlocking {
+        val kept = File(
+            root,
+            ".kept.mp4",
+        ).apply { writeText("video") }
+        val deleted = File(
+            root,
+            ".deleted.mp4",
+        ).apply { writeText("video") }
+        scanner.scan(root.absolutePath)
+        awaitEnrichment(scanner)
+
+        assertTrue(deleted.delete())
+        scanner.forgetDeletedFiles(listOf(deleted.absolutePath))
+
+        // Nothing in the file system changed as far as MediaStore is concerned: it never had a
+        // row for either file. Without an explicit invalidation the deleted entry stays in the
+        // snapshot for the rest of the freshness window and the row plays a gone file.
+        val result = scanner.scan(root.absolutePath)
+
+        assertEquals(
+            listOf(kept.path),
+            result.map { it.path },
+        )
+    }
+
+    @Test
+    fun `deleting every hidden file leaves an empty scan instead of the cached entries`() =
+        runBlocking {
+            val video = File(
+                root,
+                ".hidden.mp4",
+            ).apply { writeText("video") }
+            scanner.scan(root.absolutePath)
+            awaitEnrichment(scanner)
+
+            assertTrue(video.delete())
+            scanner.forgetDeletedFiles(listOf(video.absolutePath))
+
+            assertTrue(scanner.scan(root.absolutePath).isEmpty())
+        }
+
+    private suspend fun awaitEnrichment(
+        target: HiddenVideoScanner,
+        scanRoot: String? = root.absolutePath,
+        timeoutMillis: Long = 5_000,
+    ) {
+        val initial = target.scan(scanRoot)
         withTimeout(timeoutMillis) {
-            while (target.scan(root.absolutePath) === initial) {
+            while (target.scan(scanRoot) === initial) {
                 delay(25.milliseconds)
             }
         }

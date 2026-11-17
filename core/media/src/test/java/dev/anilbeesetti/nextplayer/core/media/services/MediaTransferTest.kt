@@ -22,7 +22,9 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.launch
@@ -73,7 +75,13 @@ class MediaTransferTest {
         "transfer.documents",
         "target",
     )
-    private val service = LocalMediaOperationsService(context = context)
+    private val service = LocalMediaOperationsService(
+        context = context,
+        hiddenVideoScanner = HiddenVideoScanner(
+            context = context,
+            applicationScope = CoroutineScope(SupervisorJob()),
+        ),
+    )
 
     @Before
     fun setUp() {

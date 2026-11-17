@@ -48,6 +48,9 @@ import org.koin.core.annotation.Single
  * [SCAN_FRESHNESS_MILLIS], and every file's first discovery time is recorded so newly added
  * files are reported with the same "added" semantics as MediaStore rows.
  *
+ * The same applies to deletion: a hidden file that is deleted was never in MediaStore either, so
+ * [forgetDeletedFiles] drops the snapshots that listed it and emits on [observeCacheUpdates].
+ *
  * Duration and resolution come from the persisted snapshots of earlier scans: those values only
  * change when the file itself changes, so they are reused for as long as the file's size and
  * modification time match. A scan therefore returns complete rows without opening any file,
@@ -195,6 +198,7 @@ class HiddenVideoScanner(
             videos = videos,
         )
         persistFirstSeen(pruneMissingFiles = root == null)
+        if (root == null) pruneMissingMetadata()
         Logger.logInfo(
             tag = TAG,
             message = "hidden scan found ${videos.size} videos in ${files.size} files across " +
@@ -216,6 +220,44 @@ class HiddenVideoScanner(
         clearDiskCache()
         // The first-seen record deliberately survives: it captures when a file was discovered,
         // not the contents of any single scan.
+    }
+
+    /**
+     * Forgets everything recorded for [paths], which are files that were just deleted.
+     *
+     * A deleted file cannot be discovered by MediaStore either - it never had a row there - so no
+     * change notification would ever refresh the snapshot that still lists it. Dropping the
+     * affected snapshots and emitting on [observeCacheUpdates] makes the next query re-walk the
+     * file system instead of serving the deleted entries until the freshness window expires.
+     *
+     * Other roots keep their snapshots: only the folders that actually contained one of [paths]
+     * have to be walked again.
+     */
+    fun forgetDeletedFiles(paths: Collection<String>) {
+        if (paths.isEmpty()) return
+        val deleted = paths.mapNotNullTo(mutableSetOf()) { path ->
+            runCatching { File(path).canonicalPath }.getOrNull() ?: path
+        }
+        deleted.forEach { path ->
+            metadataCache.remove(path)
+            firstSeenByPath.remove(path)
+        }
+        val affectedKeys = cache.filterValues { scan ->
+            scan.videos.any { video -> video.path in deleted }
+        }.keys
+        affectedKeys.forEach { key ->
+            enrichmentJobs.remove(key)?.cancel()
+            cache.remove(key)
+            diskFile(key).delete()
+        }
+        if (affectedKeys.isEmpty()) return
+        persistFirstSeen(pruneMissingFiles = false)
+        cacheUpdates.tryEmit(Unit)
+        Logger.logInfo(
+            tag = TAG,
+            message = "forgot ${deleted.size} deleted hidden file(s), dropped " +
+                "${affectedKeys.size} scan snapshot(s)",
+        )
     }
 
     private fun firstSeenRecordFile(): File = File(
@@ -267,6 +309,24 @@ class HiddenVideoScanner(
                 tag = TAG,
                 message = "first-seen record write failed, discovery times are not persisted",
                 throwable = error,
+            )
+        }
+    }
+
+    /**
+     * Drops metadata for files that no longer exist.
+     *
+     * Only safe after a walk that covered every storage volume: a partial scan cannot tell a
+     * deleted file from one outside its root, and would evict durations that are still valid.
+     * Without this, both caches grow for the lifetime of the process as files are deleted.
+     */
+    private fun pruneMissingMetadata() {
+        val missing = metadataCache.keys.filter { path -> !File(path).exists() }
+        missing.forEach { path -> metadataCache.remove(path) }
+        if (missing.isNotEmpty()) {
+            Logger.logInfo(
+                tag = TAG,
+                message = "dropped ${missing.size} metadata entries for files that no longer exist",
             )
         }
     }

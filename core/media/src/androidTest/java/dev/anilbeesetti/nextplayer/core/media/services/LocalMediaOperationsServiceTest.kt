@@ -9,7 +9,9 @@ import java.util.UUID
 import java.util.concurrent.CyclicBarrier
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
@@ -57,6 +59,7 @@ class LocalMediaOperationsServiceTest {
         try {
             val moved = LocalMediaOperationsService(
                 context = context,
+                hiddenVideoScanner = testScanner(),
             ).moveMedia(targets = mapOf(pair = sourceUri to existingVaultFile))
 
             assertNull(
@@ -104,7 +107,10 @@ class LocalMediaOperationsServiceTest {
             "shared.mp4",
         )
         val barrier = CyclicBarrier(sourceFiles.size)
-        val service = LocalMediaOperationsService(context = context)
+        val service = LocalMediaOperationsService(
+            context = context,
+            hiddenVideoScanner = testScanner(),
+        )
 
         try {
             val results = coroutineScope {
@@ -165,6 +171,7 @@ class LocalMediaOperationsServiceTest {
             assertThrows(CancellationException::class.java) {
                 LocalMediaOperationsService(
                     context = context,
+                    hiddenVideoScanner = testScanner(),
                 ).moveFileWithoutOverwrite(
                     source = source,
                     destination = destination,
@@ -226,7 +233,10 @@ class LocalMediaOperationsServiceTest {
             vaultDir,
             "second.mp4",
         )
-        val service = LocalMediaOperationsService(context = context)
+        val service = LocalMediaOperationsService(
+            context = context,
+            hiddenVideoScanner = testScanner(),
+        )
         val firstMoveCommitted = CompletableDeferred<Unit>()
         val allowSecondMove = CompletableDeferred<Unit>()
 
@@ -263,6 +273,12 @@ class LocalMediaOperationsServiceTest {
             testRoot.deleteRecursively()
         }
     }
+
+    /** The scanner is only reached from `deleteMedia`; these tests exercise moves. */
+    private fun testScanner() = HiddenVideoScanner(
+        context = ApplicationProvider.getApplicationContext(),
+        applicationScope = CoroutineScope(SupervisorJob()),
+    )
 
     private companion object {
         const val TEST_TIMEOUT_MILLIS = 5_000L

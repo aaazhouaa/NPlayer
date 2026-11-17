@@ -46,7 +46,10 @@ import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
 
 @Single
-class LocalMediaOperationsService(private val context: Context) : MediaOperationsService {
+class LocalMediaOperationsService(
+    private val context: Context,
+    private val hiddenVideoScanner: HiddenVideoScanner,
+) : MediaOperationsService {
 
     private lateinit var activity: Activity
     private val contentResolver = context.contentResolver
@@ -72,9 +75,15 @@ class LocalMediaOperationsService(private val context: Context) : MediaOperation
                     ignoreCase = true,
                 )
             }
-            val fileDeleted = fileUris.all { uri ->
-                uri.path?.let { File(it).delete() } ?: false
+            val deletedFilePaths = fileUris.mapNotNull { uri ->
+                uri.path?.takeIf { path -> File(path).delete() }
             }
+            // Hidden files have no MediaStore row, so no change notification refreshes the list
+            // that still shows them. MediaStore-backed deletes below do notify on their own.
+            if (deletedFilePaths.isNotEmpty()) {
+                hiddenVideoScanner.forgetDeletedFiles(paths = deletedFilePaths)
+            }
+            val fileDeleted = deletedFilePaths.size == fileUris.size
             if (providerUris.isEmpty()) return@withContext fileDeleted
 
             return@withContext if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
