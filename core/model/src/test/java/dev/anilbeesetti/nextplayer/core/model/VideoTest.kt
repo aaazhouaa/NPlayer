@@ -1,6 +1,5 @@
 package dev.anilbeesetti.nextplayer.core.model
 
-import java.util.Date
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -48,7 +47,20 @@ class VideoTest {
     fun watchedVideoIsNeverNewEvenIfRecentlyAdded() {
         val video = Video.sample.copy(
             dateAdded = now / 1000L,
-            lastPlayedAt = Date(now),
+            isRead = true,
+        )
+
+        assertFalse(video.isNew(nowMillis = now))
+    }
+
+    @Test
+    fun playingAVideoWithoutHistoryRecordingStillClearsTheNewBadge() {
+        // lastPlayedAt stays null when watch history is paused, but isRead is independent of
+        // that preference, so the badge still clears.
+        val video = Video.sample.copy(
+            dateAdded = now / 1000L,
+            lastPlayedAt = null,
+            isRead = true,
         )
 
         assertFalse(video.isNew(nowMillis = now))

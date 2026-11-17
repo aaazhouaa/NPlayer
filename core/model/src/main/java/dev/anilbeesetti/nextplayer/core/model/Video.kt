@@ -21,6 +21,8 @@ data class Video(
     val format: String? = null,
     val isHidden: Boolean = false,
     val lastPlayedAt: Date? = null,
+    /** True once the video has been read, which clears its "new" badge. */
+    val isRead: Boolean = false,
     val videoStream: VideoStreamInfo? = null,
     val audioStreams: List<AudioStreamInfo> = emptyList(),
     val subtitleStreams: List<SubtitleStreamInfo> = emptyList(),
@@ -57,7 +59,7 @@ fun List<Video>.recentPlayed(): Video? =
     filter { it.lastPlayedAt != null }.sortedByDescending { it.lastPlayedAt?.time }.firstOrNull()
 
 fun Video.isNew(nowMillis: Long = System.currentTimeMillis(), thresholdDays: Int = 7): Boolean {
-    if (lastPlayedAt != null || thresholdDays <= 0) return false
+    if (isRead || thresholdDays <= 0) return false
     val addedAtMillis = dateAdded * 1000L
     return nowMillis - addedAtMillis in 0..(thresholdDays * 24L * 60L * 60L * 1000L)
 }

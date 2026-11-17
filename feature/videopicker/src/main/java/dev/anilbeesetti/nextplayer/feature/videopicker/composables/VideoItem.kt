@@ -321,7 +321,7 @@ private fun ThumbnailView(
     val isNew by produceState(
         initialValue = video.isNew(thresholdDays = preferences.newVideoThresholdDays),
         key1 = video.dateAdded,
-        key2 = video.lastPlayedAt,
+        key2 = video.isRead,
         key3 = preferences.newVideoThresholdDays,
     ) {
         value = video.isNew(thresholdDays = preferences.newVideoThresholdDays)

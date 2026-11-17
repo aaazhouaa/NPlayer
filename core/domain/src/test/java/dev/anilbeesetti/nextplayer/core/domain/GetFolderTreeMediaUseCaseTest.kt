@@ -4,7 +4,6 @@ import dev.anilbeesetti.nextplayer.core.data.repository.fake.FakeMediaRepository
 import dev.anilbeesetti.nextplayer.core.data.repository.fake.FakePreferencesRepository
 import dev.anilbeesetti.nextplayer.core.model.Folder
 import dev.anilbeesetti.nextplayer.core.model.Video
-import java.util.Date
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -42,7 +41,7 @@ class GetFolderTreeMediaUseCaseTest {
         height = 1080,
         size = 1000,
         dateAdded = (now - addedDaysAgo * oneDayMillis) / 1000L,
-        lastPlayedAt = if (watched) Date(now) else null,
+        isRead = watched,
     )
 
     @Test

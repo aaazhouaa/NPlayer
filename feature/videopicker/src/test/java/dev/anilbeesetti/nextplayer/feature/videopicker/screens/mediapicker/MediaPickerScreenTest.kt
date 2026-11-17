@@ -299,6 +299,50 @@ class MediaPickerScreenTest {
     }
 
     @Test
+    fun newBadgeDisappearsAsSoonAsTheVideoIsNoLongerNew() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VIDEO)
+        val newVideo = Video.sample.copy(
+            nameWithExtension = "Clip.mp4",
+            uriString = "content://media/external/video/media/1",
+            dateAdded = System.currentTimeMillis() / 1000,
+            lastPlayedAt = null,
+        )
+        var video by mutableStateOf(value = newVideo)
+        composeRule.setContent {
+            NextPlayerTheme {
+                MediaPickerScreenContent(
+                    state = MediaPickerUiState(
+                        folderName = "Movies",
+                        mediaDataState = DataState.Success(
+                            value = MediaHolder(
+                                videos = listOf(element = video),
+                                folders = emptyList(),
+                            ),
+                        ),
+                    ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(
+            text = "NEW",
+            useUnmergedTree = true,
+        ).assertIsDisplayed()
+
+        // Playing the video (or marking it read) sets isRead, which makes the video no longer
+        // new. The badge must react to that change immediately instead of waiting for the next
+        // polling tick or a manual refresh.
+        composeRule.runOnIdle { video = newVideo.copy(isRead = true) }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(
+            text = "NEW",
+            useUnmergedTree = true,
+        ).assertDoesNotExist()
+    }
+
+    @Test
     fun longPressOnItemVibratesOnce() {
         val application = ApplicationProvider.getApplicationContext<Application>()
         shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VIDEO)

@@ -23,4 +23,5 @@ internal fun MediaVideo.toVideo(mediaState: MediumStateEntity? = null) = Video(
     isHidden = isHidden,
     playbackPosition = mediaState?.playbackPosition,
     lastPlayedAt = mediaState?.lastPlayedTime?.let { Date(it) },
+    isRead = mediaState?.isRead ?: false,
 )

@@ -22,7 +22,7 @@ import dev.anilbeesetti.nextplayer.core.database.entities.PlaylistItemEntity
         PlaylistEntity::class,
         PlaylistItemEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class MediaDatabase : RoomDatabase() {
@@ -417,6 +417,26 @@ abstract class MediaDatabase : RoomDatabase() {
                 db.execSQL(sql = "ALTER TABLE `media_state_new` RENAME TO `media_state`")
                 db.execSQL(
                     sql = "CREATE UNIQUE INDEX `index_media_state_uri` ON `media_state` (`uri`)",
+                )
+            }
+        }
+
+        val MIGRATION_13_14 = object : Migration(
+            13,
+            14,
+        ) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    sql = "ALTER TABLE `media_state` ADD COLUMN `is_read` " +
+                        "INTEGER NOT NULL DEFAULT 0",
+                )
+                // Backfill: videos that already carry a play timestamp were treated as read by
+                // the previous rule (`isNew` returned false whenever `last_played_time` was set).
+                // Without this every already-watched video would turn back into "new" after the
+                // upgrade, because `is_read` defaults to 0.
+                db.execSQL(
+                    sql = "UPDATE `media_state` SET `is_read` = 1 " +
+                        "WHERE `last_played_time` IS NOT NULL",
                 )
             }
         }

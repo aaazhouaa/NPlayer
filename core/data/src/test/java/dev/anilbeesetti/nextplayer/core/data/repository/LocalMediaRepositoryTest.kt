@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -206,6 +207,103 @@ class LocalMediaRepositoryTest {
         assertEquals(
             400L,
             dao.get(uri = "content://new")?.playbackPosition,
+        )
+        // Playback still marks the video read even though the play event itself was not
+        // recorded, so the "new" badge clears independently of the history preference.
+        assertEquals(
+            true,
+            dao.get(uri = "content://new")?.isRead,
+        )
+    }
+
+    @Test
+    fun `marking videos as read is independent of the watch history preference`() = runTest {
+        val file = temporaryFolder.newFile().apply {
+            writeText(text = """{"isHistoryPaused":true}""")
+        }
+        val preferences = AppPreferencesDataSource(
+            DataStoreFactory.create(
+                serializer = ApplicationPreferencesSerializer,
+                scope = backgroundScope,
+                produceFile = { file },
+            ),
+        )
+        val mediaService = object : MediaService {
+            override fun observeFolders(
+                folderPath: String?,
+                includeHidden: Boolean,
+                respectNoMedia: Boolean,
+            ) = flowOf(value = emptyList<MediaFolder>())
+
+            override fun observeVideos(
+                folderPath: String?,
+                includeHidden: Boolean,
+                respectNoMedia: Boolean,
+            ) = flowOf(value = emptyList<MediaVideo>())
+
+            override fun observeTrashVideos() = flowOf(value = emptyList<MediaVideo>())
+
+            override suspend fun fetchFolders(
+                folderPath: String?,
+                includeHidden: Boolean,
+                respectNoMedia: Boolean,
+            ) = emptyList<MediaFolder>()
+
+            override suspend fun fetchVideos(
+                folderPath: String?,
+                includeHidden: Boolean,
+                respectNoMedia: Boolean,
+            ) = emptyList<MediaVideo>()
+
+            override suspend fun findVideo(uri: Uri) = null
+            override suspend fun findFolder(path: String) = null
+            override fun invalidateHiddenCache() = Unit
+        }
+        val repository = LocalMediaRepository(
+            mediumStateDao = dao,
+            mediaService = mediaService,
+            appPreferencesDataSource = preferences,
+            RuntimeEnvironment.getApplication(),
+        )
+        dao.upsert(
+            mediumState = MediumStateEntity(
+                uriString = "content://watched",
+                lastPlayedTime = 100,
+                playbackPosition = 42,
+                isRead = true,
+            ),
+        )
+
+        repository.markVideosAsRead(
+            uris = listOf(
+                "content://watched",
+                "content://fresh",
+            ),
+        )
+
+        // Both the already-known row and the newly created one become read...
+        assertEquals(
+            true,
+            dao.get(uri = "content://watched")?.isRead,
+        )
+        assertEquals(
+            true,
+            dao.get(uri = "content://fresh")?.isRead,
+        )
+        // ...without turning into watch-history entries: marking read is not playback.
+        assertEquals(
+            100L,
+            dao.get(uri = "content://watched")?.lastPlayedTime,
+        )
+        assertNull(dao.get(uri = "content://fresh")?.lastPlayedTime)
+        assertEquals(
+            42L,
+            dao.get(uri = "content://watched")?.playbackPosition,
+        )
+        assertTrue(
+            repository.observePlaybackHistory().first().none {
+                it.uriString == "content://fresh"
+            },
         )
     }
 

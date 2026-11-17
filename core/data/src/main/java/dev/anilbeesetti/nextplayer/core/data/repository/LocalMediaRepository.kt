@@ -233,18 +233,20 @@ class LocalMediaRepository(
             state.copy(
                 lastPlayedTime = if (recordHistory) lastPlayedTime else state.lastPlayedTime,
                 duration = duration ?: state.duration,
+                // Playing a video marks it read even when history recording is paused: the
+                // "new" badge tracks whether the user has seen the video, not whether the
+                // play event was recorded in history.
+                isRead = true,
             )
         }
     }
 
     override suspend fun markVideosAsRead(uris: List<String>) {
         if (uris.isEmpty()) return
-        val now = System.currentTimeMillis()
         val existingStates = mediumStateDao.getAll().first().associateBy { it.uriString }
         mediumStateDao.upsertAll(
             mediaStates = uris.distinct().map { uri ->
-                (existingStates[uri] ?: MediumStateEntity(uriString = uri))
-                    .copy(lastPlayedTime = now)
+                (existingStates[uri] ?: MediumStateEntity(uriString = uri)).copy(isRead = true)
             },
         )
     }
@@ -327,5 +329,6 @@ private fun MediumStateEntity.toHistoryVideo(): Video {
         formattedDuration = duration?.let(block = Utils::formatDurationMillis).orEmpty(),
         playbackPosition = playbackPosition,
         lastPlayedAt = lastPlayedTime?.let(block = ::Date),
+        isRead = isRead,
     )
 }

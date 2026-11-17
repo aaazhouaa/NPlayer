@@ -60,9 +60,8 @@ class FakeMediaRepository : MediaRepository {
     }
 
     override suspend fun markVideosAsRead(uris: List<String>) {
-        val now = System.currentTimeMillis()
         videos.replaceAll { video ->
-            if (video.uriString in uris) video.copy(lastPlayedAt = Date(now)) else video
+            if (video.uriString in uris) video.copy(isRead = true) else video
         }
         notifyMediaChanged()
     }

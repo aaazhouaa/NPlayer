@@ -241,6 +241,68 @@ class MediaDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate13To14_backfillsReadFromLastPlayedTime() {
+        helper.createDatabase(
+            name = "read-migration",
+            version = 13,
+        ).apply {
+            execSQL(
+                """
+                INSERT INTO media_state (
+                    uri, playback_position, last_played_time, external_subs, external_audio,
+                    video_scale, subtitle_delay, subtitle_speed
+                ) VALUES ('content://video/played', 12345, 67890, '', '', 1, 0, 1)
+                """.trimIndent(),
+            )
+            execSQL(
+                """
+                INSERT INTO media_state (
+                    uri, playback_position, last_played_time, external_subs, external_audio,
+                    video_scale, subtitle_delay, subtitle_speed
+                ) VALUES ('content://video/unplayed', 0, NULL, '', '', 1, 0, 1)
+                """.trimIndent(),
+            )
+            close()
+        }
+        helper.runMigrationsAndValidate(
+            name = "read-migration",
+            version = 14,
+            validateDroppedTables = true,
+            MediaDatabase.MIGRATION_13_14,
+        ).use { db ->
+            db.query(
+                query = "SELECT uri, last_played_time, is_read FROM media_state ORDER BY uri",
+            ).use { cursor ->
+                check(cursor.moveToFirst())
+                assertEquals(
+                    "content://video/played",
+                    cursor.getString(cursor.getColumnIndexOrThrow("uri")),
+                )
+                // A video that had a play timestamp was already "not new" under the old rule,
+                // so the migration must keep it read instead of resurrecting its NEW badge.
+                assertEquals(
+                    1,
+                    cursor.getInt(cursor.getColumnIndexOrThrow("is_read")),
+                )
+                assertEquals(
+                    67890L,
+                    cursor.getLong(cursor.getColumnIndexOrThrow("last_played_time")),
+                )
+                check(cursor.moveToNext())
+                assertEquals(
+                    "content://video/unplayed",
+                    cursor.getString(cursor.getColumnIndexOrThrow("uri")),
+                )
+                assertEquals(
+                    0,
+                    cursor.getInt(cursor.getColumnIndexOrThrow("is_read")),
+                )
+                assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("last_played_time")))
+            }
+        }
+    }
+
     private companion object {
         const val TEST_DB = "migration-test"
     }
