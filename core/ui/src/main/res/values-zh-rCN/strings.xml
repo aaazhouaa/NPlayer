@@ -513,6 +513,7 @@
     <string name="more">更多</string>
     <string name="move_to_trash">移动到回收站</string>
     <string name="move_to_trash_info">所选项目会被移动到回收站</string>
+    <string name="hidden_files_delete_directly">隐藏文件无法移入回收站，将被直接删除</string>
     <string name="pick_file">选择文件</string>
     <string name="clear_all">全部清除</string>
     <string name="clear_history_confirmation">从历史移除所有观看过的视频吗？</string>

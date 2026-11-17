@@ -192,6 +192,7 @@
     <string name="trash">Trash</string>
     <string name="move_to_trash">Move to trash</string>
     <string name="move_to_trash_info">Selected items will be moved to trash.</string>
+    <string name="hidden_files_delete_directly">Hidden files can\'t be moved to trash. They will be deleted directly.</string>
     <string name="trash_empty_title">Trash is empty</string>
     <string name="trash_empty_description">Videos you move to trash will show up here. You can restore them or delete them permanently.</string>
     <string name="delete_file">The following file will be deleted permanently</string>

@@ -695,7 +695,7 @@ private fun ProgressSection(label: String, fraction: Float?) {
 }
 
 @Composable
-private fun DeleteConfirmationDialog(
+internal fun DeleteConfirmationDialog(
     modifier: Modifier = Modifier,
     selectionItems: Set<SelectionItem>,
     trashSupported: Boolean,
@@ -704,7 +704,15 @@ private fun DeleteConfirmationDialog(
 ) {
     val selectedVideos = selectionItems.filterIsInstance<SelectionItem.Video>()
     val selectedFolders = selectionItems.filterIsInstance<SelectionItem.Folder>()
+
+    // Hidden videos are discovered by scanning the file system: MediaStore has no row for them,
+    // so there is no row to flag as trashed and the delete is always a physical one.
+    val hiddenVideos = selectedVideos.filter { it.uriString.startsWith("file://") }
+    val onlyHiddenVideos = hiddenVideos.isNotEmpty() &&
+        hiddenVideos.size == selectedVideos.size &&
+        selectedFolders.isEmpty()
     var permanently by rememberSaveable { mutableStateOf(value = false) }
+    val deletesPermanently = permanently || !trashSupported || onlyHiddenVideos
 
     NextDialog(
         onDismissRequest = onCancel,
@@ -739,12 +747,12 @@ private fun DeleteConfirmationDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(permanently || !trashSupported) },
+                onClick = { onConfirm(deletesPermanently) },
                 modifier = modifier,
             ) {
                 Text(
                     text = stringResource(
-                        id = if (permanently || !trashSupported) {
+                        id = if (deletesPermanently) {
                             R.string.delete
                         } else {
                             R.string.move_to_trash
@@ -757,14 +765,18 @@ private fun DeleteConfirmationDialog(
         modifier = modifier,
         content = {
             Text(
-                text = if (permanently || !trashSupported) {
-                    if ((selectedFolders.size + selectedVideos.size) == 1) {
+                text = when {
+                    hiddenVideos.isNotEmpty() -> {
+                        stringResource(R.string.hidden_files_delete_directly)
+                    }
+
+                    deletesPermanently -> if ((selectedFolders.size + selectedVideos.size) == 1) {
                         stringResource(R.string.delete_item_info)
                     } else {
                         stringResource(R.string.delete_items_info)
                     }
-                } else {
-                    stringResource(R.string.move_to_trash_info)
+
+                    else -> stringResource(R.string.move_to_trash_info)
                 },
                 style = MaterialTheme.typography.titleSmall,
             )

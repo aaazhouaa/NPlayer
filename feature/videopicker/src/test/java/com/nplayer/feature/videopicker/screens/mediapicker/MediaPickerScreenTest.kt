@@ -42,6 +42,7 @@ import com.nplayer.core.ui.base.DataState
 import com.nplayer.core.ui.components.LocalTopLevelFabSetter
 import com.nplayer.core.ui.components.TopLevelFabState
 import com.nplayer.core.ui.theme.NPlayerTheme
+import com.nplayer.feature.videopicker.state.SelectionItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -473,5 +474,60 @@ class MediaPickerScreenTest {
         assertTrue(MediaPickerAction.AddSelectionToPlaylist(playlistId = 7) in actions)
         composeRule.runOnIdle { showPlaylistDialog = false }
         composeRule.onNodeWithText(text = "1 / 1 Selected").assertDoesNotExist()
+    }
+
+    @Test
+    fun deleteDialogStatesHiddenFilesCannotGoToTrash() {
+        val confirmed = mutableListOf<Boolean>()
+        composeRule.setContent {
+            NPlayerTheme {
+                DeleteConfirmationDialog(
+                    selectionItems = setOf(
+                        SelectionItem.Video(
+                            name = "Hidden.mp4",
+                            uriString = "file:///storage/emulated/0/.Movies/Hidden.mp4",
+                            path = "/storage/emulated/0/.Movies/Hidden.mp4",
+                        ),
+                    ),
+                    trashSupported = true,
+                    onConfirm = { confirmed.add(element = it) },
+                    onCancel = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(
+            text = "Hidden files can't be moved to trash. They will be deleted directly.",
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(text = "Delete").performClick()
+
+        assertEquals(
+            listOf(element = true),
+            confirmed,
+        )
+    }
+
+    @Test
+    fun deleteDialogKeepsTrashWordingForIndexedVideos() {
+        composeRule.setContent {
+            NPlayerTheme {
+                DeleteConfirmationDialog(
+                    selectionItems = setOf(
+                        SelectionItem.Video(
+                            name = "Clip.mp4",
+                            uriString = "content://media/external/video/media/2",
+                            path = "/storage/emulated/0/Download/Clip.mp4",
+                        ),
+                    ),
+                    trashSupported = true,
+                    onConfirm = {},
+                    onCancel = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(text = "Selected items will be moved to trash.")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(text = "Move to trash").assertIsDisplayed()
     }
 }
