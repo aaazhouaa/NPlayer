@@ -191,7 +191,7 @@ class MediaStoreMediaService(
         val startedAt = System.nanoTime()
         val mediaStoreVideos = queryVideos(folderPath = folderPath)
         if (!includeHidden) {
-            Logger.logInfo(
+            Logger.logDebug(
                 tag = TAG,
                 message = "media scan (mediastore only) found ${mediaStoreVideos.size} videos " +
                     "for folder=$folderPath respectNoMedia=$respectNoMedia " +
@@ -206,7 +206,7 @@ class MediaStoreMediaService(
         )
         val knownPaths = mediaStoreVideos.mapTo(mutableSetOf()) { it.path }
         val additionalHidden = hiddenVideos.filter { it.path !in knownPaths }
-        Logger.logInfo(
+        Logger.logDebug(
             tag = TAG,
             message = "media scan found ${mediaStoreVideos.size} indexed + " +
                 "${additionalHidden.size} hidden (${hiddenVideos.size - additionalHidden.size} " +

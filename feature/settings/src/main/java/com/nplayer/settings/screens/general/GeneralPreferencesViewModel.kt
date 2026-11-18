@@ -36,11 +36,23 @@ class GeneralPreferencesViewModel(
     override val state: StateFlow<GeneralPreferencesUiState> = stateInternal.asStateFlow()
     private var pendingImport: String? = null
 
+    init {
+        viewModelScope.launch {
+            preferencesRepository.applicationPreferences.collect { preferences ->
+                stateInternal.update { state ->
+                    state.copy(isVerboseLogging = preferences.isVerboseLogging)
+                }
+            }
+        }
+    }
+
     override fun onAction(action: GeneralPreferencesUiEvent) {
         when (action) {
             is GeneralPreferencesUiEvent.NavigateUp -> output.navigateUp()
 
             is GeneralPreferencesUiEvent.OpenLogs -> output.openLogs()
+
+            is GeneralPreferencesUiEvent.SetVerboseLogging -> setVerboseLogging(action.enabled)
 
             is GeneralPreferencesUiEvent.ShowDialog -> showDialog(action.value)
 
@@ -66,6 +78,14 @@ class GeneralPreferencesViewModel(
 
     private fun clearThumbnailCache() {
         viewModelScope.launch { imageLoader.clearAllCache() }
+    }
+
+    private fun setVerboseLogging(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences {
+                it.copy(isVerboseLogging = enabled)
+            }
+        }
     }
 
     private fun resetSettings() {
@@ -123,6 +143,7 @@ class GeneralPreferencesViewModel(
 data class GeneralPreferencesUiState(
     val showDialog: GeneralPreferencesDialog? = null,
     val isBusy: Boolean = false,
+    val isVerboseLogging: Boolean = false,
 )
 
 sealed interface GeneralPreferencesDialog {
@@ -136,6 +157,8 @@ sealed interface GeneralPreferencesUiEvent {
     data object NavigateUp : GeneralPreferencesUiEvent
 
     data object OpenLogs : GeneralPreferencesUiEvent
+
+    data class SetVerboseLogging(val enabled: Boolean) : GeneralPreferencesUiEvent
 
     data class ShowDialog(val value: GeneralPreferencesDialog?) : GeneralPreferencesUiEvent
     data object ClearThumbnailCache : GeneralPreferencesUiEvent

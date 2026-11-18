@@ -141,7 +141,7 @@ class HiddenVideoScanner(
         )
         val nowMillis = System.currentTimeMillis()
         cache[key]?.takeIf { it.isFresh(nowMillis = nowMillis) }?.let { cached ->
-            Logger.logInfo(
+            Logger.logDebug(
                 tag = TAG,
                 message = "hidden scan served ${cached.videos.size} videos from memory cache " +
                     "(root=$root)",
@@ -159,7 +159,7 @@ class HiddenVideoScanner(
             // Seed the per-file metadata so scans of subfolders reuse these values
             // instead of parsing the same files again.
             cached.forEach { video -> video.rememberMetadata() }
-            Logger.logInfo(
+            Logger.logDebug(
                 tag = TAG,
                 message = "hidden scan served ${cached.size} videos from disk cache (root=$root)",
             )
@@ -324,7 +324,7 @@ class HiddenVideoScanner(
         val missing = metadataCache.keys.filter { path -> !File(path).exists() }
         missing.forEach { path -> metadataCache.remove(path) }
         if (missing.isNotEmpty()) {
-            Logger.logInfo(
+            Logger.logDebug(
                 tag = TAG,
                 message = "dropped ${missing.size} metadata entries for files that no longer exist",
             )
@@ -549,7 +549,7 @@ class HiddenVideoScanner(
                     scannedAtMillis = cache[key]?.scannedAtMillis ?: System.currentTimeMillis(),
                 )
                 cacheUpdates.tryEmit(Unit)
-                Logger.logInfo(
+                Logger.logDebug(
                     tag = TAG,
                     message = "hidden metadata enrichment finished for ${enriched.size} files " +
                         "(root=${key.root})",

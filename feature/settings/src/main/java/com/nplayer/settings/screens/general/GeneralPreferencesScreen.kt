@@ -34,6 +34,7 @@ import com.nplayer.core.ui.components.ClickablePreferenceItem
 import com.nplayer.core.ui.components.ListSectionTitle
 import com.nplayer.core.ui.components.NextDialog
 import com.nplayer.core.ui.components.NextTopAppBar
+import com.nplayer.core.ui.components.PreferenceSwitch
 import com.nplayer.core.ui.components.rememberTvListFocusRequester
 import com.nplayer.core.ui.components.tvFocusDown
 import com.nplayer.core.ui.components.tvListFocus
@@ -181,6 +182,19 @@ private fun GeneralPreferencesScreenContent(
                     icon = NextIcons.BugReport,
                     onClick = { onAction(GeneralPreferencesUiEvent.OpenLogs) },
                     isFirstItem = true,
+                )
+                PreferenceSwitch(
+                    title = stringResource(R.string.verbose_logging),
+                    description = stringResource(R.string.verbose_logging_description),
+                    icon = NextIcons.Decoder,
+                    isChecked = state.isVerboseLogging,
+                    onClick = {
+                        onAction(
+                            GeneralPreferencesUiEvent.SetVerboseLogging(
+                                enabled = !state.isVerboseLogging,
+                            ),
+                        )
+                    },
                     isLastItem = true,
                 )
             }

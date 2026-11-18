@@ -28,6 +28,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -40,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,8 +67,12 @@ import com.nplayer.core.common.LogSession
 import com.nplayer.core.common.LogStore
 import com.nplayer.core.common.copyLogReportToClipboard
 import com.nplayer.core.common.filterByLevels
+import com.nplayer.core.common.filterByQuery
 import com.nplayer.core.common.parseLogEntries
 import com.nplayer.core.ui.R
+import com.nplayer.core.ui.components.CancelButton
+import com.nplayer.core.ui.components.NextDialog
+import com.nplayer.core.ui.components.NextOutlinedTextField
 import com.nplayer.core.ui.components.NextTopAppBar
 import com.nplayer.core.ui.designsystem.NextIcons
 import com.nplayer.core.ui.extensions.copy
@@ -81,27 +87,22 @@ import kotlinx.coroutines.withContext
 
 /**
  * Shows the retained log sessions, newest first. A session opens in its own dialog, where entries
- * can be filtered by level and scrolled a page at a time. Crashes are written into the same
- * sessions, so there is no separate crash dialog.
+ * can be filtered by level, searched and scrolled a page at a time. Crashes are written into the
+ * same sessions, so there is no separate crash dialog.
  */
 @Composable
 fun LogViewerScreen(onNavigateUp: () -> Unit) {
     val context = LocalContext.current
     val logStore = remember(context) { LogStore.create(context) }
+    val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf<LogSession?>(null) }
+    var dialog by remember { mutableStateOf(value = null as LogViewerDialog?) }
     var refreshKey by remember { mutableStateOf(value = 0) }
-    val summaries by produceState(
-        initialValue = emptyList<LogSummary>(),
+    val sessions by produceState(
+        initialValue = emptyList<LogSession>(),
         key1 = refreshKey,
     ) {
-        value = withContext(Dispatchers.IO) {
-            logStore.sessions().map { session ->
-                LogSummary(
-                    session = session,
-                    containsCrash = logStore.read(session).contains(other = CRASH_MARKER),
-                )
-            }
-        }
+        value = withContext(Dispatchers.IO) { logStore.sessions() }
     }
 
     Scaffold(
@@ -116,6 +117,17 @@ fun LogViewerScreen(onNavigateUp: () -> Unit) {
                         )
                     }
                 },
+                actions = {
+                    IconButton(
+                        enabled = sessions.isNotEmpty(),
+                        onClick = { dialog = LogViewerDialog.DeleteAll },
+                    ) {
+                        Icon(
+                            imageVector = NextIcons.DeleteSweep,
+                            contentDescription = stringResource(R.string.logs_delete_all),
+                        )
+                    }
+                },
             )
         },
     ) { scaffoldPadding ->
@@ -124,7 +136,7 @@ fun LogViewerScreen(onNavigateUp: () -> Unit) {
                 .fillMaxSize()
                 .padding(paddingValues = scaffoldPadding.copy(bottom = 0.dp)),
         ) {
-            if (summaries.isEmpty()) {
+            if (sessions.isEmpty()) {
                 Text(
                     text = stringResource(R.string.logs_empty),
                     style = MaterialTheme.typography.bodyMedium,
@@ -134,12 +146,12 @@ fun LogViewerScreen(onNavigateUp: () -> Unit) {
             } else {
                 LazyColumn(modifier = Modifier.weight(weight = 1f)) {
                     items(
-                        items = summaries,
-                        key = { it.session.name },
-                    ) { summary ->
+                        items = sessions,
+                        key = { it.name },
+                    ) { session ->
                         LogSessionItem(
-                            summary = summary,
-                            onClick = { selected = summary.session },
+                            session = session,
+                            onClick = { selected = session },
                         )
                     }
                 }
@@ -151,11 +163,59 @@ fun LogViewerScreen(onNavigateUp: () -> Unit) {
         LogSessionDialog(
             logStore = logStore,
             session = session,
-            onDeleted = {
+            onRequestDelete = {
+                // The confirmation replaces the session view: canceling it returns to the list
+                // rather than stacking dialogs.
                 selected = null
-                refreshKey++
+                dialog = LogViewerDialog.DeleteSession(session = session)
             },
             onDismiss = { selected = null },
+        )
+    }
+
+    when (val current = dialog) {
+        null -> Unit
+
+        LogViewerDialog.DeleteAll -> NextDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(text = stringResource(R.string.logs_delete_all)) },
+            content = { Text(text = stringResource(R.string.logs_delete_all_description)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        dialog = null
+                        scope.launch {
+                            withContext(Dispatchers.IO) { logStore.deleteAll() }
+                            selected = null
+                            refreshKey++
+                        }
+                    },
+                ) {
+                    Text(text = stringResource(R.string.delete))
+                }
+            },
+            dismissButton = { CancelButton(onClick = { dialog = null }) },
+        )
+
+        is LogViewerDialog.DeleteSession -> NextDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text(text = stringResource(R.string.logs_delete)) },
+            content = { Text(text = stringResource(R.string.logs_delete_description)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        dialog = null
+                        val session = current.session
+                        scope.launch {
+                            withContext(Dispatchers.IO) { logStore.delete(session = session) }
+                            refreshKey++
+                        }
+                    },
+                ) {
+                    Text(text = stringResource(R.string.delete))
+                }
+            },
+            dismissButton = { CancelButton(onClick = { dialog = null }) },
         )
     }
 }
@@ -164,7 +224,7 @@ fun LogViewerScreen(onNavigateUp: () -> Unit) {
 private fun LogSessionDialog(
     logStore: LogStore,
     session: LogSession,
-    onDeleted: () -> Unit,
+    onRequestDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -177,6 +237,7 @@ private fun LogSessionDialog(
     var selectedLevels by remember(session.name) {
         mutableStateOf(value = LogLevel.entries.toSet())
     }
+    var query by rememberSaveable(session.name) { mutableStateOf(value = "") }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -196,12 +257,7 @@ private fun LogSessionDialog(
                 ),
             ) {
                 Text(
-                    text = remember(session.lastModifiedMillis) {
-                        SimpleDateFormat(
-                            "yyyy-MM-dd HH:mm:ss",
-                            Locale.getDefault(),
-                        ).format(Date(session.lastModifiedMillis))
-                    },
+                    text = formatTimestamp(millis = session.startedAtMillis),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -215,13 +271,35 @@ private fun LogSessionDialog(
                         }
                     },
                 )
+                NextOutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    placeholder = { Text(text = stringResource(R.string.logs_search)) },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = NextIcons.Search,
+                            contentDescription = null,
+                        )
+                    },
+                    singleLine = true,
+                )
                 val content = entries
-                val visibleEntries = content?.filterByLevels(levels = selectedLevels).orEmpty()
+                val visibleEntries = content
+                    ?.filterByLevels(levels = selectedLevels)
+                    ?.filterByQuery(query = query)
+                    .orEmpty()
+                val searched = query.isNotBlank()
+                val emptyText = if (searched) {
+                    R.string.logs_search_empty
+                } else {
+                    R.string.logs_levels_empty
+                }
                 when {
                     content == null -> CircularProgressIndicator(modifier = Modifier.size(24.dp))
 
                     visibleEntries.isEmpty() -> Text(
-                        text = stringResource(R.string.logs_levels_empty),
+                        text = stringResource(emptyText),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 16.dp),
@@ -264,12 +342,7 @@ private fun LogSessionDialog(
                     TextButton(onClick = { context.shareLogText(visibleEntries.toLogText()) }) {
                         Text(text = stringResource(R.string.logs_share))
                     }
-                    TextButton(
-                        onClick = {
-                            logStore.delete(session)
-                            onDeleted()
-                        },
-                    ) {
+                    TextButton(onClick = onRequestDelete) {
                         Text(text = stringResource(R.string.logs_delete))
                     }
                     TextButton(
@@ -338,7 +411,11 @@ private fun LogEntryList(entries: List<LogEntry>, modifier: Modifier = Modifier)
                 true
             },
     ) {
-        itemsIndexed(items = entries) { index, entry ->
+        // The index is stable because the entry list is replaced wholesale when a filter changes.
+        itemsIndexed(
+            items = entries,
+            key = { index, _ -> index },
+        ) { _, entry ->
             SelectionContainer {
                 Text(
                     text = entry.text,
@@ -372,17 +449,7 @@ private val LogLevel.labelResId: Int
     }
 
 @Composable
-private fun LogSessionItem(summary: LogSummary, onClick: () -> Unit) {
-    val timestamp = remember(summary.session.lastModifiedMillis) {
-        SimpleDateFormat(
-            "yyyy-MM-dd HH:mm:ss",
-            Locale.getDefault(),
-        )
-            .format(Date(summary.session.lastModifiedMillis))
-    }
-    val size = remember(summary.session.sizeBytes) {
-        "${summary.session.sizeBytes / 1024}KB"
-    }
+private fun LogSessionItem(session: LogSession, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -395,12 +462,12 @@ private fun LogSessionItem(summary: LogSummary, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = timestamp,
+            text = formatTimestamp(millis = session.startedAtMillis),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(weight = 1f),
         )
-        if (summary.containsCrash) {
+        if (session.containsCrash) {
             Text(
                 text = stringResource(R.string.logs_session_crash),
                 style = MaterialTheme.typography.labelMedium,
@@ -408,26 +475,47 @@ private fun LogSessionItem(summary: LogSummary, onClick: () -> Unit) {
             )
         }
         Text(
-            text = size,
+            text = formatLogSize(bytes = session.sizeBytes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
-private const val CRASH_MARKER = "E/Crash:"
 private const val PAGE_FRACTION = 0.8f
 private const val DIALOG_HEIGHT_FRACTION = 0.85f
+private const val LOG_TIMESTAMP_PATTERN = "yyyy-MM-dd HH:mm:ss"
+private const val LOG_SHARE_FILE_NAME = "n-player-logs.txt"
 private val DIALOG_MAX_WIDTH = 720.dp
 
-private data class LogSummary(val session: LogSession, val containsCrash: Boolean)
+private sealed interface LogViewerDialog {
+    data object DeleteAll : LogViewerDialog
+
+    data class DeleteSession(val session: LogSession) : LogViewerDialog
+}
+
+private fun formatTimestamp(millis: Long): String = SimpleDateFormat(
+    LOG_TIMESTAMP_PATTERN,
+    Locale.getDefault(),
+).format(Date(millis))
+
+/** Sizes are shown in the unit that reads as a size, not as a long run of kilobytes. */
+internal fun formatLogSize(bytes: Long): String = when {
+    bytes >= 1024L * 1024L -> String.format(
+        Locale.getDefault(),
+        "%.1fMB",
+        bytes / 1048576.0,
+    )
+
+    else -> "${bytes / 1024}KB"
+}
 
 private fun List<LogEntry>.toLogText(): String = joinToString(separator = "\n") { it.text }
 
 private fun Context.shareLogText(text: String) {
     val file = File(
         cacheDir,
-        "next_player_logs.txt",
+        LOG_SHARE_FILE_NAME,
     ).apply {
         if (exists()) delete()
         createNewFile()

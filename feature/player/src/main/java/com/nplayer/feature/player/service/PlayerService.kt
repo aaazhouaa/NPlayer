@@ -153,7 +153,7 @@ class PlayerService : MediaSessionService() {
             initializedTimestampMs: Long,
             initializationDurationMs: Long,
         ) {
-            Logger.logInfo(
+            Logger.logDebug(
                 tag = DECODER_LOG_TAG,
                 message = "Video decoder initialized with requested=${decoderManager.videoMode} " +
                     "as ${decoderManager.activeVideoMode}: $decoderName",
@@ -167,7 +167,7 @@ class PlayerService : MediaSessionService() {
             initializedTimestampMs: Long,
             initializationDurationMs: Long,
         ) {
-            Logger.logInfo(
+            Logger.logDebug(
                 tag = DECODER_LOG_TAG,
                 message = "Audio decoder initialized with requested=${decoderManager.audioMode} " +
                     "as ${decoderManager.activeAudioMode}: $decoderName",
@@ -182,7 +182,7 @@ class PlayerService : MediaSessionService() {
                     val mimeType = group.mediaTrackGroup.getFormat(0).sampleMimeType
                     "$mimeType(supported=${group.isSupported(true)}, selected=${group.isSelected})"
                 }
-            Logger.logInfo(
+            Logger.logDebug(
                 tag = DECODER_LOG_TAG,
                 message = "Video tracks: ${videoTracks.ifEmpty { "none" }}, " +
                     "unmapped=${trackSelector.unmappedTrackCount(C.TRACK_TYPE_VIDEO)}",
@@ -194,7 +194,7 @@ class PlayerService : MediaSessionService() {
             output: Any,
             renderTimeMs: Long,
         ) {
-            Logger.logInfo(
+            Logger.logDebug(
                 tag = DECODER_LOG_TAG,
                 message = "Rendered first frame with video=${decoderManager.activeVideoMode}",
             )
@@ -1354,7 +1354,7 @@ class PlayerService : MediaSessionService() {
             DecoderTrackType.VIDEO -> decoderManager.selectVideoDecoder(mode = mode)
             DecoderTrackType.AUDIO -> decoderManager.selectAudioDecoder(mode = mode)
         }
-        Logger.logInfo(
+        Logger.logDebug(
             tag = DECODER_LOG_TAG,
             message = "$trackType decoder mode set to $mode",
         )

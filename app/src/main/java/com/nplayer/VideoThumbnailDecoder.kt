@@ -559,7 +559,8 @@ class VideoThumbnailDecoder(
     }
 
     private fun logInfo(message: String) {
-        Logger.logInfo(
+        // Per-frame detail: only recorded when verbose logging is enabled.
+        Logger.logDebug(
             tag = LOG_TAG,
             message = message,
         )
