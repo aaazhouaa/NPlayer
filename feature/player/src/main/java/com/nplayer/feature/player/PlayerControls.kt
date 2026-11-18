@@ -7,14 +7,21 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,6 +66,10 @@ fun PlayerControls(
     modifier: Modifier = Modifier,
     middleControlsModifier: Modifier = Modifier,
 ) {
+    val systemBarsPadding = WindowInsets.systemBars.union(
+        WindowInsets.displayCutout,
+    ).asPaddingValues()
+    val startInset = systemBarsPadding.calculateStartPadding(LocalLayoutDirection.current)
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
@@ -128,7 +139,7 @@ fun PlayerControls(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(
-                        start = 16.dp,
+                        start = startInset + 16.dp,
                         bottom = 176.dp,
                     ),
                 style = MaterialTheme.typography.headlineMedium,
