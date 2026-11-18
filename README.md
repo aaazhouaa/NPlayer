@@ -1,11 +1,10 @@
-![N Player banner](fastlane/metadata/android/en-US/images/featureGraphic.png)
+# 二改自用
 
 # N Player
 
 N Player 是一个基于 Kotlin 与 Jetpack Compose 的 Android 原生视频播放器，源自 [Anil Beesetti](https://github.com/anilbeesetti) 的开源项目 [Next Player](https://github.com/anilbeesetti/nextplayer)。本仓库是面向个人使用的二次开发版本：应用名改为 N Player，包名为 `com.nplayer`，在保留上游全部功能的基础上补充了隐藏媒体、网格选择器、AB 循环等改动。
 
 - 上游项目：<https://github.com/anilbeesetti/nextplayer>
-- 本仓库：<https://github.com/aaazhouaa/NPlayer>
 
 ## 下载
 
