@@ -256,10 +256,23 @@ private fun LogSessionDialog(
                     max = LocalConfiguration.current.screenHeightDp.dp * DIALOG_HEIGHT_FRACTION,
                 ),
             ) {
-                Text(
-                    text = formatTimestamp(millis = session.startedAtMillis),
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = formatTimestamp(millis = session.startedAtMillis),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(weight = 1f),
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = NextIcons.Close,
+                            contentDescription = stringResource(R.string.logs_close),
+                        )
+                    }
+                }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 LogLevelFilter(
                     selectedLevels = selectedLevels,
@@ -344,11 +357,6 @@ private fun LogSessionDialog(
                     }
                     TextButton(onClick = onRequestDelete) {
                         Text(text = stringResource(R.string.logs_delete))
-                    }
-                    TextButton(
-                        onClick = onDismiss,
-                    ) {
-                        Text(text = stringResource(R.string.logs_close))
                     }
                 }
             }
