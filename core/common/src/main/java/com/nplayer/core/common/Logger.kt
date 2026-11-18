@@ -33,8 +33,13 @@ fun millisSince(startNanos: Long): Long = (System.nanoTime() - startNanos) / 1_0
  *
  * A crash is written by [GlobalExceptionHandler][com.nplayer.crash] followed by [flush], so the
  * queue never costs the entry that explains the crash.
+ *
+ * [LogStore] deletes sessions, including the one this object is writing to. Deleting a file that is
+ * still open leaves the writer appending to an unlinked inode: every later entry returns normally
+ * and none of them is visible in the directory. [onSessionDeleted] is what [LogStore] calls to
+ * replace that session instead of deleting it.
  */
-object Logger {
+object Logger : ActiveLogSession {
 
     private const val DEBUG = 'D'
     private const val INFO = 'I'
@@ -64,6 +69,7 @@ object Logger {
 
     private var writer: BufferedWriter? = null
     private var sessionFile: File? = null
+    private var sessionDirectory: File? = null
     private var sessionBytes = 0L
     private var flushScheduled = false
 
@@ -94,6 +100,33 @@ object Logger {
             context.filesDir,
             LOG_DIRECTORY_NAME,
         )
+        startSession(directory = directory)
+        pruneLogSessions(
+            directory = directory,
+            keep = MAX_LOG_SESSIONS,
+        )
+        logInfo(
+            tag = TAG,
+            message = "session started on ${Build.MANUFACTURER} ${Build.MODEL} " +
+                "(Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT}, " +
+                "verbose=$verbose)",
+        )
+    }
+
+    override fun onSessionDeleted(from: File) {
+        synchronized(lock) {
+            if (sessionFile != from) return
+            val directory = sessionDirectory ?: return
+            startSession(directory = directory)
+        }
+        logInfo(
+            tag = TAG,
+            message = "new session started after the log was cleared",
+        )
+    }
+
+    /** Closes the open session, if any, and starts a new one in [directory]. */
+    private fun startSession(directory: File) {
         synchronized(lock) {
             flushLocked()
             closeWriterLocked()
@@ -108,18 +141,9 @@ object Logger {
                 writer = null
             }
             sessionFile = file
+            sessionDirectory = directory
             sessionBytes = runCatching { file.length() }.getOrDefault(0L)
         }
-        pruneLogSessions(
-            directory = directory,
-            keep = MAX_LOG_SESSIONS,
-        )
-        logInfo(
-            tag = TAG,
-            message = "session started on ${Build.MANUFACTURER} ${Build.MODEL} " +
-                "(Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT}, " +
-                "verbose=$verbose)",
-        )
     }
 
     /** Enables or disables recording debug entries in the session file. */

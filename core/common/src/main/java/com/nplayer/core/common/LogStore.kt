@@ -21,7 +21,7 @@ data class LogSession(
 )
 
 /** Reads and deletes the log sessions [Logger] keeps on disk. */
-class LogStore(private val directory: File) {
+class LogStore(private val directory: File, private val activeSession: ActiveLogSession) {
 
     /** The retained sessions, newest first. */
     fun sessions(): List<LogSession> = logSessionFiles(directory = directory).map { file ->
@@ -40,13 +40,21 @@ class LogStore(private val directory: File) {
 
     fun read(session: LogSession): String = runCatching { session.file.readText() }.getOrDefault("")
 
+    /**
+     * Deletes [session], then tells the logger, which opens a new session when [session] turns out
+     * to be the one being written. Unlinking that file outright would leave the writer appending
+     * to an unlinked inode and swallow every later entry.
+     */
     fun delete(session: LogSession) {
-        session.file.delete()
+        if (!session.file.delete()) return
+        activeSession.onSessionDeleted(from = session.file)
     }
 
     /** Deletes every retained session, so the viewer starts empty. */
     fun deleteAll() {
-        logSessionFiles(directory = directory).forEach { file -> file.delete() }
+        logSessionFiles(directory = directory).forEach { file ->
+            if (file.delete()) activeSession.onSessionDeleted(from = file)
+        }
     }
 
     /**
@@ -74,7 +82,10 @@ class LogStore(private val directory: File) {
                 context.filesDir,
                 LOG_DIRECTORY_NAME,
             )
-            return LogStore(directory = directory)
+            return LogStore(
+                directory = directory,
+                activeSession = Logger,
+            )
         }
     }
 }
