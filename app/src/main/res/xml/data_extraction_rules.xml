@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+   Rules for Android 12 and above. See
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+
+   The log directory is excluded from both cloud backup and device transfer: session files carry
+   device details, absolute file paths, playback history and network connection details.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude
+            domain="file"
+            path="logs" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude
+            domain="file"
+            path="logs" />
     </device-transfer>
-    -->
 </data-extraction-rules>

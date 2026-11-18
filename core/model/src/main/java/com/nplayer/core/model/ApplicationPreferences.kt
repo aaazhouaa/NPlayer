@@ -36,6 +36,9 @@ data class ApplicationPreferences(
 
     val newVideoThresholdDays: Int = 7,
 
+    // Diagnostics
+    val isVerboseLogging: Boolean = false,
+
     // Thumbnail generation
     val thumbnailGenerationStrategy: ThumbnailGenerationStrategy =
         ThumbnailGenerationStrategy.FRAME_AT_PERCENTAGE,

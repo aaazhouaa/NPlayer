@@ -120,4 +120,35 @@ class LogEntriesTest {
             filtered.map { it.level },
         )
     }
+
+    @Test
+    fun queryMatchesAnywhereInTheEntryIgnoringCase() {
+        val entries = parseLogEntries(
+            text = """
+                2026-01-02 03:04:05.006 I/NetworkSessions: connect to SMB nas.local failed
+                2026-01-02 03:04:05.007 E/Crash: uncaught exception
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            1,
+            entries.filterByQuery(query = "smb").size,
+        )
+        assertEquals(
+            1,
+            entries.filterByQuery(query = "  crash ").size,
+        )
+    }
+
+    @Test
+    fun blankQueryKeepsEveryEntry() {
+        val entries = parseLogEntries(
+            text = "2026-01-02 03:04:05.006 I/Logger: info",
+        )
+
+        assertEquals(
+            entries,
+            entries.filterByQuery(query = "   "),
+        )
+    }
 }

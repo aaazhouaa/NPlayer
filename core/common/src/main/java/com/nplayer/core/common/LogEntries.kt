@@ -59,6 +59,21 @@ fun parseLogEntries(text: String): List<LogEntry> {
 fun List<LogEntry>.filterByLevels(levels: Set<LogLevel>): List<LogEntry> =
     filter { entry -> entry.level == null || entry.level in levels }
 
+/**
+ * Keeps the entries that mention [query], case-insensitively. A blank query keeps everything, so
+ * the viewer can run this unconditionally next to [filterByLevels].
+ */
+fun List<LogEntry>.filterByQuery(query: String): List<LogEntry> {
+    val trimmed = query.trim()
+    if (trimmed.isEmpty()) return this
+    return filter { entry ->
+        entry.text.contains(
+            other = trimmed,
+            ignoreCase = true,
+        )
+    }
+}
+
 // Matches "yyyy-MM-dd HH:mm:ss.SSS L/Tag: " as written by Logger.
 private val ENTRY_PREFIX = Regex(
     pattern = """^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} ([DIWE])/""",
