@@ -162,19 +162,6 @@ internal fun MoreScreenContent(state: MoreUiState, onAction: (MoreAction) -> Uni
                             Spacer(modifier = Modifier.size(8.dp))
                             Text(text = stringResource(R.string.trash))
                         }
-                        Spacer(modifier = Modifier.weight(weight = 1f))
-                    }
-                    FilledTonalButton(
-                        modifier = Modifier.weight(weight = 1f).tvFocusRing(),
-                        onClick = { onAction(MoreAction.OpenLogs) },
-                    ) {
-                        Icon(
-                            imageVector = NextIcons.Info,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text(text = stringResource(R.string.logs_title))
                     }
                     Spacer(modifier = Modifier.weight(weight = 1f))
                 }

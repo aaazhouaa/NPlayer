@@ -19,11 +19,15 @@ fun NavBackStack<NavKey>.navigateToGeneralPreferences() {
     add(element = GeneralPreferencesRoute)
 }
 
-fun EntryProviderScope<NavKey>.generalPreferencesEntry(onNavigateUp: () -> Unit) {
+fun EntryProviderScope<NavKey>.generalPreferencesEntry(
+    onNavigateUp: () -> Unit,
+    onLogsClick: () -> Unit,
+) {
     entry<GeneralPreferencesRoute> {
         val context = LocalContext.current
         val output = GeneralPreferencesViewModel.Output(
             navigateUp = onNavigateUp,
+            openLogs = onLogsClick,
             showMessage = {
                 Toast.makeText(
                     context,

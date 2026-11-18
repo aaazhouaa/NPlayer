@@ -6,10 +6,8 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.nplayer.feature.more.navigation.historyEntry
-import com.nplayer.feature.more.navigation.logEntry
 import com.nplayer.feature.more.navigation.moreEntry
 import com.nplayer.feature.more.navigation.navigateToHistory
-import com.nplayer.feature.more.navigation.navigateToLogs
 import com.nplayer.feature.more.navigation.navigateToTrash
 import com.nplayer.feature.more.navigation.trashEntry
 import com.nplayer.feature.videopicker.navigation.navigateToVault
@@ -23,7 +21,6 @@ fun EntryProviderScope<NavKey>.moreNavGraph(context: Context, backStack: NavBack
         onSettingsClick = backStack::navigateToSettings,
         onTrashClick = backStack::navigateToTrash,
         onVaultClick = backStack::navigateToVault,
-        onLogsClick = backStack::navigateToLogs,
     )
 
     historyEntry(
@@ -34,10 +31,6 @@ fun EntryProviderScope<NavKey>.moreNavGraph(context: Context, backStack: NavBack
     trashEntry(
         onNavigateUp = { backStack.removeLastIfNotRoot() },
         onPlayVideo = { context.startPlayback(it.toUri()) },
-    )
-
-    logEntry(
-        onNavigateUp = { backStack.removeLastIfNotRoot() },
     )
 
     vaultEntry(

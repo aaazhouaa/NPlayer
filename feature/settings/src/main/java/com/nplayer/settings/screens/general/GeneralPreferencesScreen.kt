@@ -171,6 +171,19 @@ private fun GeneralPreferencesScreenContent(
                     isLastItem = true,
                 )
             }
+            ListSectionTitle(text = stringResource(id = R.string.diagnostics))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                ClickablePreferenceItem(
+                    title = stringResource(R.string.logs_view),
+                    description = stringResource(R.string.logs_description),
+                    icon = NextIcons.BugReport,
+                    onClick = { onAction(GeneralPreferencesUiEvent.OpenLogs) },
+                    isFirstItem = true,
+                    isLastItem = true,
+                )
+            }
         }
 
         state.showDialog?.let { dialog ->

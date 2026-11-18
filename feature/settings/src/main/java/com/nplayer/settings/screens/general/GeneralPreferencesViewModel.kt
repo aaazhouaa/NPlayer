@@ -26,7 +26,11 @@ class GeneralPreferencesViewModel(
     @InjectedParam internal var output: Output,
 ) : MviViewModel<GeneralPreferencesUiState, GeneralPreferencesUiEvent>() {
 
-    data class Output(val navigateUp: () -> Unit, val showMessage: (Int) -> Unit = {})
+    data class Output(
+        val navigateUp: () -> Unit,
+        val openLogs: () -> Unit = {},
+        val showMessage: (Int) -> Unit = {},
+    )
 
     private val stateInternal = MutableStateFlow(value = GeneralPreferencesUiState())
     override val state: StateFlow<GeneralPreferencesUiState> = stateInternal.asStateFlow()
@@ -35,6 +39,8 @@ class GeneralPreferencesViewModel(
     override fun onAction(action: GeneralPreferencesUiEvent) {
         when (action) {
             is GeneralPreferencesUiEvent.NavigateUp -> output.navigateUp()
+
+            is GeneralPreferencesUiEvent.OpenLogs -> output.openLogs()
 
             is GeneralPreferencesUiEvent.ShowDialog -> showDialog(action.value)
 
@@ -128,6 +134,8 @@ sealed interface GeneralPreferencesDialog {
 
 sealed interface GeneralPreferencesUiEvent {
     data object NavigateUp : GeneralPreferencesUiEvent
+
+    data object OpenLogs : GeneralPreferencesUiEvent
 
     data class ShowDialog(val value: GeneralPreferencesDialog?) : GeneralPreferencesUiEvent
     data object ClearThumbnailCache : GeneralPreferencesUiEvent

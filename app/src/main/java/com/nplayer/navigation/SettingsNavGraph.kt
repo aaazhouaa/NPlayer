@@ -11,6 +11,7 @@ import com.nplayer.settings.navigation.folderPreferencesEntry
 import com.nplayer.settings.navigation.generalPreferencesEntry
 import com.nplayer.settings.navigation.gesturePreferencesEntry
 import com.nplayer.settings.navigation.librariesEntry
+import com.nplayer.settings.navigation.logViewerEntry
 import com.nplayer.settings.navigation.mediaLibraryPreferencesEntry
 import com.nplayer.settings.navigation.navigateToAboutPreferences
 import com.nplayer.settings.navigation.navigateToAppearancePreferences
@@ -19,6 +20,7 @@ import com.nplayer.settings.navigation.navigateToFolderPreferencesScreen
 import com.nplayer.settings.navigation.navigateToGeneralPreferences
 import com.nplayer.settings.navigation.navigateToGesturePreferences
 import com.nplayer.settings.navigation.navigateToLibraries
+import com.nplayer.settings.navigation.navigateToLogViewer
 import com.nplayer.settings.navigation.navigateToMediaLibraryPreferencesScreen
 import com.nplayer.settings.navigation.navigateToPlayerPreferences
 import com.nplayer.settings.navigation.navigateToSubtitlePreferences
@@ -71,6 +73,10 @@ fun EntryProviderScope<NavKey>.settingsNavGraph(backStack: NavBackStack<NavKey>)
         onNavigateUp = { backStack.removeLastIfNotRoot() },
     )
     generalPreferencesEntry(
+        onNavigateUp = { backStack.removeLastIfNotRoot() },
+        onLogsClick = backStack::navigateToLogViewer,
+    )
+    logViewerEntry(
         onNavigateUp = { backStack.removeLastIfNotRoot() },
     )
     aboutPreferencesEntry(
