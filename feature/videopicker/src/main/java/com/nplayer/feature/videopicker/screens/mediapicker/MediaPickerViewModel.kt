@@ -178,6 +178,10 @@ class MediaPickerViewModel(
 
             is MediaPickerAction.ShowAddToPlaylist -> showAddToPlaylist(action.selectionItems)
 
+            is MediaPickerAction.IgnoreSelectedFolders -> ignoreSelectedFolders(
+                action.selectionItems,
+            )
+
             is MediaPickerAction.AddSelectionToPlaylist -> addSelectionToPlaylist(action.playlistId)
 
             is MediaPickerAction.CreatePlaylistWithSelection -> createPlaylistWithSelection(
@@ -499,6 +503,22 @@ class MediaPickerViewModel(
         }
     }
 
+    /**
+     * Excludes the selected folders from the media library. This writes the same preference the
+     * "Manage folders" settings screen edits, so both entry points stay in sync.
+     */
+    private fun ignoreSelectedFolders(selectedItems: Set<SelectionItem>) {
+        val paths = selectedItems.filterIsInstance<SelectionItem.Folder>().map { it.path }
+        if (paths.isEmpty()) return
+        viewModelScope.launch {
+            preferencesRepository.updateApplicationPreferences { preferences ->
+                preferences.copy(
+                    excludeFolders = (preferences.excludeFolders + paths).distinct(),
+                )
+            }
+        }
+    }
+
     private fun renameVideo(uri: Uri, to: String) {
         viewModelScope.launch {
             mediaOperationsService.renameMedia(
@@ -675,6 +695,7 @@ sealed interface MediaPickerAction {
     data object ConfirmHidePendingItems : MediaPickerAction
     data object DismissHideFlow : MediaPickerAction
     data class ShowAddToPlaylist(val selectionItems: Set<SelectionItem>) : MediaPickerAction
+    data class IgnoreSelectedFolders(val selectionItems: Set<SelectionItem>) : MediaPickerAction
     data class AddSelectionToPlaylist(val playlistId: Long) : MediaPickerAction
     data class CreatePlaylistWithSelection(val name: String) : MediaPickerAction
     data object DismissAddToPlaylist : MediaPickerAction

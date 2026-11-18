@@ -242,27 +242,50 @@ internal fun MediaPickerScreenContent(
                 navigationIcon = {
                     if (selectionManager.isInSelectionMode) {
                         Row(
-                            modifier = Modifier
-                                .clip(shape = CircleShape)
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
-                                .clickable { selectionManager.exitSelectionMode() }
-                                .padding(8.dp)
-                                .padding(end = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Icon(
-                                imageVector = NextIcons.Close,
-                                contentDescription = stringResource(id = R.string.navigate_up),
-                            )
-                            Text(
-                                text = stringResource(
-                                    R.string.m_n_selected,
-                                    selectedItemsSize,
-                                    totalItemsSize,
-                                ),
-                                style = MaterialTheme.typography.labelLarge,
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .clip(shape = CircleShape)
+                                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                                    .clickable { selectionManager.exitSelectionMode() }
+                                    .padding(8.dp)
+                                    .padding(end = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = NextIcons.Close,
+                                    contentDescription = stringResource(id = R.string.navigate_up),
+                                )
+                                Text(
+                                    text = stringResource(
+                                        R.string.m_n_selected,
+                                        selectedItemsSize,
+                                        totalItemsSize,
+                                    ),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                            if (selectionManager.hasFolderSelected) {
+                                IconButton(
+                                    onClick = {
+                                        onAction(
+                                            MediaPickerAction.IgnoreSelectedFolders(
+                                                selectionManager.selectionItems,
+                                            ),
+                                        )
+                                        selectionManager.exitSelectionMode()
+                                    },
+                                    modifier = topBarDownModifier.tvFocusRing(isTv = isTv),
+                                ) {
+                                    Icon(
+                                        imageVector = NextIcons.FolderOff,
+                                        contentDescription = stringResource(R.string.ignore),
+                                    )
+                                }
+                            }
                         }
                     } else if (state.folderName != null) {
                         FilledTonalIconButton(
@@ -1224,7 +1247,10 @@ private fun SelectionActionsSheet(
                         vertical = 12.dp,
                     ),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.spacedBy(
+                    4.dp,
+                    alignment = Alignment.CenterHorizontally,
+                ),
             ) {
                 SelectionAction(
                     modifier = Modifier.thenIf(condition = isTv) {
@@ -1241,6 +1267,22 @@ private fun SelectionActionsSheet(
                     title = stringResource(R.string.add_to_playlist),
                     onClick = onAddToPlaylistAction,
                 )
+                if (showHideAction) {
+                    SelectionAction(
+                        isTv = isTv,
+                        imageVector = NextIcons.HideSource,
+                        title = stringResource(id = R.string.hide),
+                        onClick = onHideAction,
+                    )
+                }
+                if (showInfoAction) {
+                    SelectionAction(
+                        isTv = isTv,
+                        imageVector = NextIcons.Info,
+                        title = stringResource(id = R.string.info),
+                        onClick = onInfoAction,
+                    )
+                }
                 if (showRenameAction) {
                     SelectionAction(
                         isTv = isTv,
@@ -1249,12 +1291,6 @@ private fun SelectionActionsSheet(
                         onClick = onRenameAction,
                     )
                 }
-                SelectionAction(
-                    isTv = isTv,
-                    imageVector = NextIcons.Share,
-                    title = stringResource(R.string.share),
-                    onClick = onShareAction,
-                )
                 SelectionAction(
                     isTv = isTv,
                     imageVector = NextIcons.Copy,
@@ -1267,27 +1303,17 @@ private fun SelectionActionsSheet(
                     title = stringResource(R.string.move),
                     onClick = onMoveAction,
                 )
-                if (showInfoAction) {
-                    SelectionAction(
-                        isTv = isTv,
-                        imageVector = NextIcons.Info,
-                        title = stringResource(id = R.string.info),
-                        onClick = onInfoAction,
-                    )
-                }
-                if (showHideAction) {
-                    SelectionAction(
-                        isTv = isTv,
-                        imageVector = NextIcons.HideSource,
-                        title = stringResource(id = R.string.hide),
-                        onClick = onHideAction,
-                    )
-                }
                 SelectionAction(
                     isTv = isTv,
                     imageVector = NextIcons.Delete,
                     title = stringResource(id = R.string.delete),
                     onClick = onDeleteAction,
+                )
+                SelectionAction(
+                    isTv = isTv,
+                    imageVector = NextIcons.Share,
+                    title = stringResource(R.string.share),
+                    onClick = onShareAction,
                 )
             }
         }

@@ -32,6 +32,10 @@ class SelectionManager(
             selectionItems.first() is SelectionItem.Video
     }
 
+    val hasFolderSelected: Boolean by derivedStateOf {
+        selectionItems.any { it is SelectionItem.Folder }
+    }
+
     fun toggleFolderSelection(folder: Folder) {
         val selectedFolder = selectionItems.find { it.id == folder.path }
         selectionItems = if (selectedFolder != null) {

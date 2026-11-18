@@ -424,6 +424,95 @@ class MediaPickerScreenTest {
     }
 
     @Test
+    fun longPressingFolderOffersIgnoreNextToTheSelectionCount() {
+        val actions = mutableListOf<MediaPickerAction>()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VIDEO)
+        val folder = Folder(
+            name = "Movies",
+            path = "/Movies",
+            dateModified = 0,
+        )
+        composeRule.setContent {
+            NPlayerTheme {
+                MediaPickerScreenContent(
+                    state = MediaPickerUiState(
+                        folderName = null,
+                        mediaDataState = DataState.Success(
+                            value = MediaHolder(
+                                folders = listOf(element = folder),
+                                videos = emptyList(),
+                            ),
+                        ),
+                    ),
+                    onAction = actions::add,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(text = "Movies").performTouchInput { longClick() }
+        val ignore = composeRule.onNodeWithContentDescription(
+            composeRule.activity.getString(R.string.ignore),
+        ).assertIsDisplayed()
+        val selectionCount = composeRule.onNodeWithText(text = "1 / 1 Selected")
+            .fetchSemanticsNode().boundsInRoot
+        val ignoreBounds = ignore.fetchSemanticsNode().boundsInRoot
+
+        // The ignore action sits right of the selection count, inside the top bar.
+        assertTrue(
+            "count=$selectionCount ignore=$ignoreBounds",
+            ignoreBounds.left >= selectionCount.right,
+        )
+
+        ignore.performClick()
+        assertEquals(
+            listOf(
+                MediaPickerAction.IgnoreSelectedFolders(
+                    setOf(
+                        SelectionItem.Folder(
+                            name = "Movies",
+                            path = "/Movies",
+                        ),
+                    ),
+                ),
+            ),
+            actions,
+        )
+    }
+
+    @Test
+    fun longPressingVideoDoesNotOfferIgnore() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VIDEO)
+        composeRule.setContent {
+            NPlayerTheme {
+                MediaPickerScreenContent(
+                    state = MediaPickerUiState(
+                        folderName = null,
+                        mediaDataState = DataState.Success(
+                            value = MediaHolder(
+                                folders = emptyList(),
+                                videos = listOf(
+                                    element = Video.sample.copy(
+                                        nameWithExtension = "Clip.mp4",
+                                        uriString = "content://video/1",
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(text = "Clip").performTouchInput { longClick() }
+
+        composeRule.onNodeWithContentDescription(
+            composeRule.activity.getString(R.string.ignore),
+        ).assertDoesNotExist()
+    }
+
+    @Test
     fun choosingPlaylistDispatchesActionAndExitsSelectionMode() {
         val actions = mutableListOf<MediaPickerAction>()
         val application = ApplicationProvider.getApplicationContext<Application>()

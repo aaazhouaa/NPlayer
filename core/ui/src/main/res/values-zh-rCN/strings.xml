@@ -104,6 +104,7 @@
     <string name="video">视频</string>
     <string name="videos">视频</string>
     <string name="manage_folders">管理文件夹</string>
+    <string name="ignore">忽略</string>
     <string name="ff_rewind">快进/快退</string>
     <string name="scanning_storage">正在扫描存储空间…</string>
     <string name="manage_folders_desc">选择要在媒体库中排除的文件夹</string>

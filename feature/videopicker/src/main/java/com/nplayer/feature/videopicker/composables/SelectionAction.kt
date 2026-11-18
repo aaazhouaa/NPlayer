@@ -31,7 +31,7 @@ internal fun SelectionAction(
     Column(
         modifier = modifier
             .defaultMinSize(
-                minWidth = 75.dp,
+                minWidth = 64.dp,
                 minHeight = 64.dp,
             )
             .tvFocusRing(
@@ -41,7 +41,7 @@ internal fun SelectionAction(
             .clip(shape = RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(
-                horizontal = 16.dp,
+                horizontal = 8.dp,
                 vertical = 8.dp,
             ),
         verticalArrangement = Arrangement.Center,
