@@ -70,7 +70,7 @@ fun MediaView(
 
     val context = LocalContext.current
     val isTv = remember { context.isTelevision }
-    val folderMinWidth = if (isTv) 160.dp else 90.dp
+    val folderMinWidth = if (isTv) 160.dp else 110.dp
     val videoMinWidth = if (isTv) 240.dp else 130.dp
 
     BoxWithConstraints {

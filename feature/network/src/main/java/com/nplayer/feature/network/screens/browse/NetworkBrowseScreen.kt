@@ -222,7 +222,7 @@ internal fun NetworkBrowseScreenContent(
                     val horizontalPadding = 8.dp
                     val itemSpacing = 2.dp
                     val availableWidth = maxWidth - horizontalPadding * 2 - itemSpacing
-                    val folderMinWidth = if (isTv) 160.dp else 90.dp
+                    val folderMinWidth = if (isTv) 160.dp else 110.dp
                     val videoMinWidth = if (isTv) 240.dp else 130.dp
                     val folderColumns = if (isGrid) {
                         (availableWidth / folderMinWidth).toInt().coerceAtLeast(
