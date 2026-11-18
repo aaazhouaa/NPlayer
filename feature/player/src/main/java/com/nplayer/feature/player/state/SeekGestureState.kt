@@ -55,6 +55,8 @@ class SeekGestureState(
         private set
 
     private var seekStartX = 0f
+    private var seekMediaId: String? = null
+    private var wasPlayingBeforeDrag = false
 
     fun onSeek(value: Long) {
         val duration = player.duration
@@ -62,9 +64,11 @@ class SeekGestureState(
             reset()
             return
         }
+        if (isSeeking && player.currentMediaItem?.mediaId != seekMediaId) reset()
         if (!isSeeking) {
             isSeeking = true
             seekStartPosition = player.currentPosition
+            seekMediaId = player.currentMediaItem?.mediaId
             player.setIsScrubbingModeEnabled(enabled = true)
         }
 
@@ -94,16 +98,26 @@ class SeekGestureState(
         if (player.duration <= 0) return
         if (!player.isCurrentMediaItemSeekable) return
 
+        if (!isSeeking) {
+            // Pausing keeps the drag from running the current item into its end, where the player
+            // would hand the rest of the gesture over to the next queued item.
+            wasPlayingBeforeDrag = player.playWhenReady
+            if (wasPlayingBeforeDrag) player.pause()
+            player.setIsScrubbingModeEnabled(enabled = true)
+        }
         isSeeking = true
         seekStartX = offset.x
         seekStartPosition = player.currentPosition
-
-        player.setIsScrubbingModeEnabled(enabled = true)
+        seekMediaId = player.currentMediaItem?.mediaId
     }
 
     @OptIn(UnstableApi::class)
     fun onDrag(change: PointerInputChange, dragAmount: Float) {
         if (seekStartPosition == null) return
+        if (player.currentMediaItem?.mediaId != seekMediaId) {
+            reset()
+            return
+        }
         val duration = player.duration
         if (duration <= 0 || player.currentPosition < 0) {
             reset()
@@ -130,9 +144,12 @@ class SeekGestureState(
 
     private fun reset() {
         if (isSeeking) player.setIsScrubbingModeEnabled(enabled = false)
+        if (wasPlayingBeforeDrag) player.play()
+        wasPlayingBeforeDrag = false
         isSeeking = false
         seekStartPosition = null
         seekAmount = null
+        seekMediaId = null
 
         seekStartX = 0f
     }

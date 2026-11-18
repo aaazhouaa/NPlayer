@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import com.google.common.util.concurrent.Futures
@@ -219,6 +220,171 @@ class SeekGestureStateTest {
                 )
             }
             composeRule.onNodeWithTag(testTag = "gesture").performTouchInput { up() }
+        }
+    }
+
+    @Test
+    fun dragEndsWhenMediaItemChangesMidGesture() {
+        val player = PlaylistPlayer()
+        val state = SeekGestureState(player = player)
+        composeRule.setContent {
+            Box(
+                Modifier.size(300.dp).testTag(tag = "gesture").pointerInput(Unit) {
+                    detectCustomHorizontalDragGestures(
+                        onDragStart = state::onDragStart,
+                        onHorizontalDrag = state::onDrag,
+                        onDragEnd = state::onDragEnd,
+                        onDragCancel = state::onDragEnd,
+                    )
+                },
+            )
+        }
+        composeRule.onNodeWithTag(testTag = "gesture").performTouchInput {
+            down(
+                Offset(
+                    x = width * 0.2f,
+                    y = centerY,
+                ),
+            )
+            moveTo(
+                Offset(
+                    x = width * 0.4f,
+                    y = centerY,
+                ),
+            )
+            moveTo(
+                Offset(
+                    x = width * 0.45f,
+                    y = centerY,
+                ),
+            )
+        }
+        var seekCountAfterSwitch = 0
+        composeRule.runOnIdle {
+            assertTrue(state.isSeeking)
+            assertTrue(player.seekCount > 0)
+        }
+        composeRule.runOnIdle { player.moveToItem(index = 1) }
+        composeRule.runOnIdle {
+            assertEquals(
+                "second",
+                player.currentMediaItem?.mediaId,
+            )
+            seekCountAfterSwitch = player.seekCount
+        }
+        composeRule.onNodeWithTag(testTag = "gesture").performTouchInput {
+            moveTo(
+                Offset(
+                    x = width * 0.6f,
+                    y = centerY,
+                ),
+            )
+            up()
+        }
+        composeRule.runOnIdle {
+            assertFalse(state.isSeeking)
+            assertEquals(
+                seekCountAfterSwitch,
+                player.seekCount,
+            )
+        }
+    }
+
+    @Test
+    fun draggingPausesPlaybackAndResumesOnRelease() {
+        val player = PlaylistPlayer(playWhenReady = true)
+        val state = SeekGestureState(player = player)
+        composeRule.setContent {
+            Box(
+                Modifier.size(300.dp).testTag(tag = "gesture").pointerInput(Unit) {
+                    detectCustomHorizontalDragGestures(
+                        onDragStart = state::onDragStart,
+                        onHorizontalDrag = state::onDrag,
+                        onDragEnd = state::onDragEnd,
+                        onDragCancel = state::onDragEnd,
+                    )
+                },
+            )
+        }
+        composeRule.onNodeWithTag(testTag = "gesture").performTouchInput {
+            down(
+                Offset(
+                    x = width * 0.2f,
+                    y = centerY,
+                ),
+            )
+            moveTo(
+                Offset(
+                    x = width * 0.4f,
+                    y = centerY,
+                ),
+            )
+        }
+        composeRule.runOnIdle {
+            assertTrue(state.isSeeking)
+            assertFalse(player.playWhenReady)
+        }
+        composeRule.onNodeWithTag(testTag = "gesture").performTouchInput { up() }
+        composeRule.runOnIdle {
+            assertFalse(state.isSeeking)
+            assertTrue(player.playWhenReady)
+        }
+    }
+
+    private class PlaylistPlayer(playWhenReady: Boolean = false) :
+        SimpleBasePlayer(Looper.getMainLooper()) {
+        var seekCount = 0
+        private var currentIndex = 0
+        private var playWhenReadyFlag = playWhenReady
+
+        override fun getState(): State = State.Builder()
+            .setAvailableCommands(
+                Player.Commands.Builder().addAll(
+                    Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
+                    Player.COMMAND_GET_TIMELINE,
+                    Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+                    Player.COMMAND_PLAY_PAUSE,
+                ).build(),
+            )
+            .setPlaylist(
+                listOf(
+                    "first",
+                    "second",
+                ).map { id ->
+                    MediaItemData.Builder(id)
+                        .setMediaItem(MediaItem.Builder().setMediaId(id).build())
+                        .setDurationUs(60_000_000)
+                        .setIsSeekable(true)
+                        .build()
+                },
+            )
+            .setCurrentMediaItemIndex(currentIndex)
+            .setContentPositionMs(1_000)
+            .setPlayWhenReady(
+                playWhenReadyFlag,
+                Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            )
+            .setPlaybackState(Player.STATE_READY)
+            .build()
+
+        override fun handleSeek(
+            mediaItemIndex: Int,
+            positionMs: Long,
+            seekCommand: Int,
+        ): ListenableFuture<*> {
+            seekCount++
+            return Futures.immediateVoidFuture()
+        }
+
+        override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
+            playWhenReadyFlag = playWhenReady
+            invalidateState()
+            return Futures.immediateVoidFuture()
+        }
+
+        fun moveToItem(index: Int) {
+            currentIndex = index
+            invalidateState()
         }
     }
 

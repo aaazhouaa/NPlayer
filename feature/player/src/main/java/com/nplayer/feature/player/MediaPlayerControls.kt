@@ -5,8 +5,6 @@ import androidx.annotation.OptIn
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -14,7 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -23,7 +20,6 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.state.rememberProgressStateWithTickInterval
@@ -36,7 +32,6 @@ import com.nplayer.feature.player.state.TapGestureState
 import com.nplayer.feature.player.state.VideoZoomAndContentScaleState
 import com.nplayer.feature.player.state.rememberAbRepeatState
 import com.nplayer.feature.player.state.rememberChaptersState
-import com.nplayer.feature.player.state.rememberMediaPresentationState
 import com.nplayer.feature.player.state.rememberMetadataState
 import com.nplayer.feature.player.state.rememberPlayerKeyInputState
 import com.nplayer.feature.player.ui.DpadSeekIndicator
@@ -63,7 +58,6 @@ internal fun MediaPlayerControls(
 ) {
     val playerPreferences = state.playerPreferences
     val metadataState = rememberMetadataState(player = player)
-    val mediaPresentationState = rememberMediaPresentationState(player = player)
     val progressState = rememberProgressStateWithTickInterval(player = player)
     val chaptersState = rememberChaptersState(
         player = player,
@@ -137,13 +131,6 @@ internal fun MediaPlayerControls(
                         }
                 },
         ) {
-            if (mediaPresentationState.isBuffering && !seekGestureState.isSeeking) {
-                CircularProgressIndicator(
-                    Modifier
-                        .align(Alignment.Center)
-                        .size(72.dp),
-                )
-            }
             PlayerGestureIndicators(tapGestureState = tapGestureState)
             DpadSeekIndicator(
                 visible = keyInputState.isSeeking && keyInputState.seekOffsetMs != 0L,
