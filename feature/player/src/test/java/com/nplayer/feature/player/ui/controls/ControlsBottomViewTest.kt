@@ -122,7 +122,7 @@ class ControlsBottomViewTest {
 
     @Test
     @Config(qualifiers = "w600dp-h800dp-port")
-    fun upFromSeekbarEntersTimeThenRightVisitsChaptersAbRepeatAndSpeed() {
+    fun upFromSeekbarEntersTimeThenRightVisitsChaptersAbRepeatPlaylistAndSpeed() {
         val player = composeRule.runOnIdle { TestPlayer() }
         try {
             showControls(player = player)
@@ -141,6 +141,11 @@ class ControlsBottomViewTest {
                 .performKeyInput { pressKey(Key.DirectionRight) }
             composeRule.onNodeWithContentDescription(
                 composeRule.activity.getString(R.string.ab_repeat),
+            )
+                .assertIsFocused()
+                .performKeyInput { pressKey(Key.DirectionRight) }
+            composeRule.onNodeWithContentDescription(
+                composeRule.activity.getString(R.string.playlists),
             )
                 .assertIsFocused()
                 .performKeyInput { pressKey(Key.DirectionRight) }
@@ -252,6 +257,7 @@ class ControlsBottomViewTest {
                     onPictureInPictureClick = {},
                     onPlaybackSpeedClick = {},
                     onAbRepeatLongClick = {},
+                    onPlaylistClick = {},
                     onPlayInBackgroundClick = {},
                     onSeek = player::seekTo,
                     onSeekEnd = {},

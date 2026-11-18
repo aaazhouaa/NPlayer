@@ -84,6 +84,7 @@ fun ControlsBottomView(
     onPictureInPictureClick: () -> Unit,
     onPlaybackSpeedClick: () -> Unit,
     onAbRepeatLongClick: () -> Unit,
+    onPlaylistClick: () -> Unit,
     onPlayInBackgroundClick: () -> Unit,
     onSeek: (Long) -> Unit,
     onSeekEnd: () -> Unit,
@@ -212,6 +213,17 @@ fun ControlsBottomView(
                     },
                     onLongClick = onAbRepeatLongClick,
                 )
+                PlayerButton(
+                    onClick = onPlaylistClick,
+                    containerColor = PlayerButtonBlackAlpha,
+                    contentPadding = PaddingValues(8.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_playlist),
+                        contentDescription = stringResource(R.string.playlists),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
                 PlaybackSpeedButton(
                     player = player,
                     onClick = onPlaybackSpeedClick,
@@ -304,6 +316,7 @@ private fun ControlsBottomViewPreview() {
                 onPictureInPictureClick = {},
                 onPlaybackSpeedClick = {},
                 onAbRepeatLongClick = {},
+                onPlaylistClick = {},
                 onPlayInBackgroundClick = {},
                 onSeek = {},
                 onSeekEnd = {},

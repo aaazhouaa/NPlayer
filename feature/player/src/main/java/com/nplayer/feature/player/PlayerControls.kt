@@ -86,7 +86,6 @@ fun PlayerControls(
                     onDecoderClick = { onShowOverlay(OverlayView.DECODER_SELECTOR) },
                     onAudioClick = { onShowOverlay(OverlayView.AUDIO_SELECTOR) },
                     onSubtitleClick = { onShowOverlay(OverlayView.SUBTITLE_SELECTOR) },
-                    onPlaylistClick = { onShowOverlay(OverlayView.PLAYLIST) },
                     onBackClick = onBackClick,
                 )
             }
@@ -117,6 +116,7 @@ fun PlayerControls(
                     onSeekCancel = seekGestureState::onSeekCancel,
                     onPlaybackSpeedClick = { onShowOverlay(OverlayView.PLAYBACK_SPEED) },
                     onAbRepeatLongClick = { onShowOverlay(OverlayView.AB_REPEAT) },
+                    onPlaylistClick = { onShowOverlay(OverlayView.PLAYLIST) },
                     onPlayInBackgroundClick = onPlayInBackgroundClick,
                     onLockControlsClick = {
                         controlsVisibilityState.showControls()

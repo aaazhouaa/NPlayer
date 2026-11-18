@@ -48,7 +48,6 @@ fun ControlsTopView(
     onDecoderClick: () -> Unit = {},
     onAudioClick: () -> Unit = {},
     onSubtitleClick: () -> Unit = {},
-    onPlaylistClick: () -> Unit = {},
 ) {
     val firstControlFocusRequester = remember { FocusRequester() }
     val systemBarsPadding = WindowInsets.systemBars.union(
@@ -97,12 +96,6 @@ fun ControlsTopView(
                     text = stringResource((videoDecoderMode ?: DecoderMode.HARDWARE).labelRes),
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
-                )
-            }
-            PlayerButton(onClick = onPlaylistClick) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_playlist),
-                    contentDescription = null,
                 )
             }
             PlayerButton(onClick = onAudioClick) {
