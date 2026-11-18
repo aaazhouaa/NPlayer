@@ -7,7 +7,7 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,6 +39,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,6 +73,11 @@ fun MoreScreen(viewModel: MoreViewModel) {
         onAction = viewModel::onAction,
     )
 }
+
+private val ActionButtonContentPadding = PaddingValues(
+    horizontal = 12.dp,
+    vertical = 8.dp,
+)
 
 @Composable
 internal fun MoreScreenContent(state: MoreUiState, onAction: (MoreAction) -> Unit) {
@@ -119,51 +125,64 @@ internal fun MoreScreenContent(state: MoreUiState, onAction: (MoreAction) -> Uni
                     ),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                FlowRow(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    maxItemsInEachRow = 2,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     FilledTonalButton(
                         modifier = Modifier.weight(weight = 1f).tvFocusRing(),
                         onClick = { onAction(MoreAction.OpenVault) },
+                        contentPadding = ActionButtonContentPadding,
                     ) {
                         Icon(
                             imageVector = NextIcons.Lock,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
                         )
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text(text = stringResource(R.string.vault))
+                        Spacer(modifier = Modifier.size(4.dp))
+                        Text(
+                            text = stringResource(R.string.vault),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     FilledTonalButton(
                         modifier = Modifier.weight(weight = 1f).tvFocusRing(),
                         onClick = { filePicker.launch(input = "video/*") },
+                        contentPadding = ActionButtonContentPadding,
                     ) {
                         Icon(
                             imageVector = NextIcons.FileOpen,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
                         )
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text(text = stringResource(R.string.pick_file))
+                        Spacer(modifier = Modifier.size(4.dp))
+                        Text(
+                            text = stringResource(R.string.pick_file),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     if (MediaOperationsService.supportsTrash()) {
                         FilledTonalButton(
                             modifier = Modifier.weight(weight = 1f).tvFocusRing(),
                             onClick = { onAction(MoreAction.OpenTrash) },
+                            contentPadding = ActionButtonContentPadding,
                         ) {
                             Icon(
                                 imageVector = NextIcons.Delete,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                             )
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text(text = stringResource(R.string.trash))
+                            Spacer(modifier = Modifier.size(4.dp))
+                            Text(
+                                text = stringResource(R.string.trash),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
-                    Spacer(modifier = Modifier.weight(weight = 1f))
                 }
                 HistorySection(
                     history = state.history,
